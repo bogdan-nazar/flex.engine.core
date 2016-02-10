@@ -1,0 +1,106 @@
+---------------------------
+[Admin]
+
+{Section Content, "create new"/"quick edit" icons: sect-content-check-icns.png}
+Resource Name: Iconset: Crystal Clear Icons by Everaldo / Yellowicon (509 icons)
+Resource File: crystal-clear-icons-by-everaldo.zip
+Resource URL: http://www.iconarchive.com/show/crystal-clear-icons-by-everaldo.1.html
+Author: Everaldo / Yellowicon
+Author's Home Page: http://www.everaldo.com/
+Author's E-mail: martin.sourada@jabber.cz
+License: GNU Lesser General Public License [http://www.gnu.org/licenses/lgpl.html]
+Commercial usage: Allowed
+
+
+{Sections' Icons: sect-icns.png}
+Resource Name: Iconset: Crystal Clear Icons by Everaldo / Yellowicon (509 icons)
+Resource File: crystal-clear-icons-by-everaldo.zip
+Resource URL: http://www.iconarchive.com/show/crystal-clear-icons-by-everaldo.1.html
+Author: Everaldo / Yellowicon
+Author's Home Page: http://www.everaldo.com/
+Author's E-mail: martin.sourada@jabber.cz
+License: GNU Lesser General Public License [http://www.gnu.org/licenses/lgpl.html]
+Commercial usage: Allowed
+
+{Install Module Icon: btn-install.png}
+Resource Name: Designing system-software-{update,install} echo icons
+Resource File: system-software-update48a.png
+Resource URL: http://mso-chronicles.blogspot.com/2008/07/designing-system-software-updateinstall.html
+Author: Martin Sourada
+Author's Home Page: http://www.blogger.com/profile/18184701134359021954
+Author's E-mail: martin.sourada@jabber.cz
+-------------------------------------------------------
+[Media Uploader]
+
+{Uploader Tab Icon: tab.png}
+Resource Name: Google Plus Interface Icons
+Resource File: WDS_Google_Plus_UI_Icon.zip\PNG\color_128\arrow_up2.png
+Resourse Page: http://www.designshock.com/google-plus-interface-icons/
+Author: WebDesignShock
+Author's Home Page: http://www.designshock.com
+Author's E-mail: blog@designshock.com
+
+{Uploaded Info Icon: icn-info.png}
+Resourse Name: info-icon-1776 (?)
+Resource File: info-icon-1776-300x300.png
+Resourse URL: http://www.bangortennis.org.uk/?attachment_id=1884
+Author:
+Author's Home Page:
+Author's E-mail:
+
+{Uploaded Preview Icon: icn-preview.png}
+Resource Name: Fugue Icons Pack 3.0
+Resource File: Fugue Icons 3.0.zip\PSD 16\picture.psd
+Resource URL: http://p.yusukekamiyamane.com/
+Author: Yusuke Kamiyamane
+Author's Home Page: http://yusukekamiyamane.com/
+Author's E-mail: p@yusukekamiyamane.com
+
+{Uploaded Previews Icon: icn-sizes.png}
+Resource Name: Fugue Icons Pack 3.0
+Resource File: Fugue Icons 3.0.zip\PSD 16\picture.psd
+Resource URL: http://p.yusukekamiyamane.com/
+Author: Yusuke Kamiyamane
+Author's Home Page: http://yusukekamiyamane.com/
+Author's E-mail: p@yusukekamiyamane.com
+
+{Uploaded Previews Icon: icn-del.png}
+Resource Name: Fugue Icons Pack 3.0
+Resource File: Fugue Icons 3.0.zip\PSD 16\cross-script.psd
+Resource URL: http://p.yusukekamiyamane.com/
+Author: Yusuke Kamiyamane
+Author's Home Page: http://yusukekamiyamane.com/
+Author's E-mail: p@yusukekamiyamane.com
+
+{Uploaded Btn Crop Bg Image: bg-btn-crop.png}
+Resource Name: Must Have Icons (Free)
+Resource File: download_free_must_have_icon_set.zip\must_have_icon_set\Cut_48x48.png
+Resource URL: http://www.visualpharm.com/must_have_icon_set/
+Author: VisualPharm
+Author's Home Page: http://www.visualpharm.com/
+Author's E-mail: team@visualpharm.com
+
+-------------------------------------------------------
+[Menu]
+{Bind icon: admin/btn-bind.png}
+Resource Name: Farm Fresh Icons [http://www.iconarchive.com/show/farm-fresh-icons-by-fatcow.html]
+Source URL: http://www.iconarchive.com/show/farm-fresh-icons-by-fatcow/insert-object-icon.html
+Author: Fatcow Web Hosting
+Author's Home Page: http://www.fatcow.com/free-icons
+Licinse: CC Attribution 3.0 [http://creativecommons.org/licenses/by/3.0/]
+Commercial usage: Allowed
+
+{Trash icon: admin/btn-del.png}
+Resource Name: Must Have Icons (Free)
+Resource URL: http://www.iconarchive.com/show/oxygen-icons-by-oxygen-icons.org/Actions-trash-empty-icon.html
+Author: Oxygen Team
+Author's Home Page: http://www.oxygen-icons.org
+Licinse: GNU Lesser General Public License [http://en.wikipedia.org/wiki/GNU_Lesser_General_Public_License]
+Commercial usage: Allowed
+
+{Hint icon: admin/icn-hint.png}
+Resource Name: Must Have Icons (Free)
+Resource URL: https://www.iconfinder.com/icondetails/86389/32/question_y_icon
+Author: Google
+Author's Home Page: http://www.google.com
+Licinse: Free for personal use only
