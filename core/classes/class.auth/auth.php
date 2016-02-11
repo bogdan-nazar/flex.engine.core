@@ -1,4 +1,4 @@
-<?
+<?php
 namespace FlexEngine;
 defined("FLEX_APP") or die("Forbidden.");
 define("AUTH_USER_STATUS_NOTCONFIRMED",0);
