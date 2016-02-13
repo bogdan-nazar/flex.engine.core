@@ -82,7 +82,7 @@ if(isset($_GET["fe-app-restart"])) // && ($_GET["fe-app-restart"]==session_id())
 	session_destroy();
 	session_start();
 }
-if(!isset($_SESSION["FLEX_APP_STARTED"]))$_SESSION["FLEX_APP_STARTED"]=time();
+if(!isset($_SESSION["FLEX_APP_STARTED"]))$_SESSION["FLEX_APP_STARTED"]=microtime();
 $_SESSION["FLEX_APP_RENEWED"]=microtime(true);
 ini_set("magic_quotes_runtime",0);
 ini_set("magic_quotes_gpc",0);

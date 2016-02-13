@@ -126,6 +126,27 @@ class module
 		}
 	}
 
+				case "q":
+					return @call_user_func_array(array(__NAMESPACE__."\\"."db",$name),$arguments);
+				case "qe":
+					return @call_user_func_array(array(__NAMESPACE__."\\"."db","esc"),$arguments);
+				case "qf":
+					return @call_user_func_array(array(__NAMESPACE__."\\"."db","fetch"),$arguments);
+	final protected static function q() {
+	}
+
+	final protected static function qe() {
+	}
+
+	final protected static function qf($r,$a="a") {
+		return db::fetch($r,$a="a");
+	}
+
+	final protected static function tplGet($tplSection="",$tplFile="",$useTemplatesSet="") {
+		$class=str_replace(__NAMESPACE__."\\","",@get_called_class());
+		return tpl::get($class,$tplSection="",$tplFile="",$useTemplatesSet="");
+	}
+
 	final public static function __callStatic($name,$arguments=array())
 	{
 		$class=@get_called_class();
@@ -216,12 +237,6 @@ class module
 					return @call_user_func_array(array(self::$__c,$name),$arguments);
 				case "posted":
 					return @call_user_func_array(array(self::$__c,$name),$arguments);
-				case "q":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."db",$name),$arguments);
-				case "qe":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."db","esc"),$arguments);
-				case "qf":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."db","fetch"),$arguments);
 				case "resourceScriptAdd":
 					if(self::$__silent)return;
 					array_unshift($arguments,self::$__ic->__instance);
@@ -262,9 +277,6 @@ class module
 					return @call_user_func_array(array(self::$__c,"silentXResponseSet"),$arguments);
 				case "tb":
 					return @call_user_func_array(array(__NAMESPACE__."\\"."db","tnm"),$arguments);
-				case "tplGet":
-					@array_unshift($arguments,self::$__ic->__instance);
-					return @call_user_func_array(array(__NAMESPACE__."\\"."tpl","get"),$arguments);
 				case "user":
 					return @call_user_func_array(array(__NAMESPACE__."\\"."auth","user"),$arguments);
 				default:
@@ -377,6 +389,8 @@ class module
 			@call_user_func(array(__NAMESPACE__."\\".self::$__ic->__instance,"_on4sleep"));
 		self::_sessionWrite();
 	}
+
+
 }
 
 ?>

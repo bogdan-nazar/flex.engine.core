@@ -214,7 +214,7 @@ final class tpl
 	*/
 	public static function get($className,$tplSection="",$tplFile="",$useTemplatesSet="")
 	{
-		if(!isset(self::$items[$className]))self::$items[$className] = array();
+		if(!isset(self::$items[$className]))self::$items[$className]=array();
 		$t=new template($className,$tplSection,$tplFile,$useTemplatesSet);
 		if($t->error())return $t;
 		self::$items[$className][$tplSection]=$t;
