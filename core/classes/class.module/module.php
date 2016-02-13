@@ -1,4 +1,4 @@
-<?
+<?php
 /* Native FlexEngine Extension Module */
 namespace FlexEngine;
 class module
