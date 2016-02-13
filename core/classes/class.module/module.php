@@ -126,20 +126,18 @@ class module
 		}
 	}
 
-				case "q":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."db",$name),$arguments);
-				case "qe":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."db","esc"),$arguments);
-				case "qf":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."db","fetch"),$arguments);
-	final protected static function q() {
+	final protected static function q($q,$die=false,$debug=array("msg"=>"Ошибка выполнения запроса к БД."))
+	{
+		return db::q($q,$die,$debug);
 	}
 
-	final protected static function qe() {
+	final protected static function qe($s)
+	{
+		return db::esc($s);
 	}
 
 	final protected static function qf($r,$a="a") {
-		return db::fetch($r,$a="a");
+		return db::fetch($r,$a);
 	}
 
 	final protected static function tplGet($tplSection="",$tplFile="",$useTemplatesSet="") {
