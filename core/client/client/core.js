@@ -1212,7 +1212,7 @@ _api.DEl = function(elname, prop, last, store_as_object) {
 _api.DElName = function(name) {
 	return this.$name + this.$instance + "-" + name;
 };
-_api.PluginWait = function(name, prop, last, inited, config, parent, cb) {
+_api.pluginWait = function(name, prop, last, inited, config, parent, cb) {
 	if (typeof this[prop] == "undefined") this[prop] = null;
 	if (typeof this[prop] == "boolean" && (!this[prop])) {
 		this.$initErr = true;
@@ -1259,32 +1259,32 @@ _api.PluginWait = function(name, prop, last, inited, config, parent, cb) {
 	}
 	return false;
 };
-_api.UrlParse = function(url) {
-	if (typeof url != "string") url = document.location.href;
-	var a = document.createElement('A');
+_api.urlParse = function(url) {
+	if (typeof url != "string") url = $.d.location.href;
+	var a = $.d.createElement("A");
 	a.href = url;
 	return {
-		source: a.href,
-		protocol: a.protocol.replace(':',''),
+		file: (a.pathname.match(/\/([^\/?#]+)$/i) || [, ""])[1],
+		hash: a.hash.replace("#", ""),
 		host: a.hostname,
-		port: a.port,
-		query: a.search,
 		params: (function(){
 			var ret = {},
-			seg = a.search.replace(/^\?/,'').split('&'),
-			len = seg.length, i = 0, s;
+				seg = a.search.replace(/^\?/, "").split("&"),
+				len = seg.length, i = 0, s;
 			for (; i < len; i++) {
 				if (!seg[i]) continue;
-				s = seg[i].split('=');
+				s = seg[i].split("=");
 				ret[s[0]] = s[1];
 			}
 			return ret;
 		})(),
-		file: (a.pathname.match(/\/([^\/?#]+)$/i) || [,''])[1],
-		hash: a.hash.replace('#',''),
-		path: a.pathname.replace(/^([^\/])/,'/$1'),
-		relative: (a.href.match(/tps?:\/\/[^\/]+(.+)/) || [,''])[1],
-		segments: a.pathname.replace(/^\//,'').split('/')
+		path: a.pathname.replace(/^([^\/])/, "/$1"),
+		port: a.port,
+		protocol: a.protocol.replace(":", ""),
+		query: a.search,
+		relative: (a.href.match(/tps?:\/\/[^\/]+(.+)/) || [, ""])[1],
+		segments: a.pathname.replace(/^\//, "").split("/"),
+		source: a.href
 	};
 };
 

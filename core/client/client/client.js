@@ -140,6 +140,27 @@ _client.prototype.getRoot = function() {
 _client.prototype.getTemplate = function() {
 	return this.$(["page", "template"]);
 };
+_client.prototype.historyPop = function(e) {
+	if (e && e.state && e.state.flexapp) {
+		document.title = e.state.title;
+		if (typeof this.$historyCbs[e.state.key] != "undefined") {
+			var params = this.$historyCbs[e.state.key];
+			if (typeof params.callback != "undefined") {
+				var func = "";
+				try {
+					if (typeof params.callback == "function") params.callback(params);
+					else if (typeof params.callback == "string") {
+						func = params.callback + (params.callback.indexOf("()") == -1 ? "()" : "") + ";";
+						eval(func);
+					}
+				} catch(e) {
+					var n = this.$("name");
+					this.console(__name_script + " > " + n + ".historyPop(): Ошибка выполнения callback-функции" + (func ? (" [" + func + "]") : "") + ". Сообщение интерпретатора: [" + e.name + "/" +  e.message + "]");
+				}
+			}
+		}
+	} else document.title = this.$("page").title;
+};
 _client.prototype.historyWrite = function(uri, title, params) {
 	if (!this.$("html5")) return;
 	if ((typeof uri != "string") || (!uri)) uri = "";
@@ -181,27 +202,6 @@ _client.prototype.historyWrite = function(uri, title, params) {
 	}
 	history.pushState(state, state.title, state.url);
 };
-_client.prototype.historyPop = function(e) {
-	if (e && e.state && e.state.flexapp) {
-		document.title = e.state.title;
-		if (typeof this.$historyCbs[e.state.key] != "undefined") {
-			var params = this.$historyCbs[e.state.key];
-			if (typeof params.callback != "undefined") {
-				var func = "";
-				try {
-					if (typeof params.callback == "function") params.callback(params);
-					else if (typeof params.callback == "string") {
-						func = params.callback + (params.callback.indexOf("()") == -1 ? "()" : "") + ";";
-						eval(func);
-					}
-				} catch(e) {
-					var n = this.$("name");
-					this.console(__name_script + " > " + n + ".historyPop(): Ошибка выполнения callback-функции" + (func ? (" [" + func + "]") : "") + ". Сообщение интерпретатора: [" + e.name + "/" +  e.message + "]");
-				}
-			}
-		}
-	} else document.title = this.$("page").title;
-};
 _client.prototype.onSubmit = function() {
 	var res;
 	for (var c in this.onSubmit) {
@@ -225,34 +225,6 @@ _client.prototype.onSubmitAdd = function(func) {
 };
 _client.prototype.urlParse = function(url) {
 	return this.z_sharedUrlParse(url);
-};
-_client.prototype.waiterHide = function() {
-	if (this._pu == -1) {
-		this.console(__name_script + " > " + this.$name + ".waiterHide(): Плагин всплывающего (модального) окна [" + __name_popup + "] отсутствует или не инициализирован.");
-		return;
-	}
-	this._plugins[__name_popup].obj.hide(this._pu);
-	this._waiter = false;
-};
-_client.prototype.waiterInit = function() {
-	if (this.$("lang") == "ru-Ru") l = "Загрузка...";
-	else l = "Loading...";
-	var d = document.createElement("DIV");
-	d.className = this.$name + "-loader " + this.$name + "-loading";
-	d.innerHTML = "Loading...";
-	this._pu = this._plugins[__name_popup].obj.add({
-		content: d,
-		showcloser:false,
-		windowed: false
-	});
-}
-_client.prototype.waiterShow = function() {
-	if (this._pu == -1) {
-		this.console(__name_script + " > " + this.$name + ".waiterShow(): Плагин всплывающего (модального) окна [" + __name_popup + "] отсутствует или не инициализирован.");
-		return;
-	}
-	this._plugins[__name_popup].obj.show(this._pu);
-	this._waiter = true;
 };
 var api = {};
 _api.action = function(action, path, query, target, seed) {
@@ -320,88 +292,6 @@ _api.BoundAction = function(action, path, query, target, seed) {
 	n.Form.submit();
 };
 
-_api.BoundPluginNew = function(name, readyCb, struct) {
-	if ((typeof name != "string") || !name) return false;
-	if (typeof init != "boolean") init = true;
-	if (typeof readyCb != "function") readyCb = false;
-	if (typeof struct != "boolean") struct = false;
-	var n = this.$("name"), p, plugin,
-		pls = this.$("plugins"),
-		prs = this.$("protos");
-	if (typeof prs[name] != "object") {
-		this.console(__name_script + " > " + n + ".pluginNew(): Ошибка создания экземпляра плагина [" + name + "]: экземпляр не зарегистрирован в системе.");
-		return null;
-	}
-	if (typeof prs[name] != "function") return false;
-	try {
-		plugin = new prs[name];
-		pls["."]++;
-	} catch (e) {
-		this.console(__name_script + " > " + n + ".pluginNew(): Ошибка создания экземпляра плагина [" + name + "]. Сообщение интерпретатора: [" + e.name + "/" +  e.message + "]");
-		return null;
-	}
-	if (typeof pls[name] != "object") pls[name] = {};
-	p = {
-		init: init,
-		inited: !init,
-		initAttempt: 0,
-		initCb: readyCb,
-		instance: "" + pls["."],
-		name: plugin.$name,
-		obj: plugin
-	};
-	pls[name]["" + pls["."]] = p;
-	p.obj.$instance = p.instance;
-	if ((p.init || readyCb) && !this.$("init").tmObj) {
-		this.$("init").tmObj = window.setTimeout(this.$("funcs").pluginsInit, 10);
-	}
-	if (struct) return p;
-	else return p.obj;
-};
-_api.BoundPluginReg = function(plugin, name, init) {
-	if (typeof name == "undefined") name = true;
-	if (typeof init != "boolean") init = true;
-	this.pluginExt(plugin);
-	var alloc = false, proto = false, p,
-		pls = this.$("plugins"),
-		prs = this.$("protos");
-	if (typeof plugin == "function") {
-		proto = plugin;
-		if (typeof name == "boolean") {
-			plugin = new proto();
-			name = plugin.$name || false;
-		} else plugin = false;
-	} else {
-		if (plugin.prototype.constructor) proto = plugin.prototype.constructor;
-		name = plugin.$name || false;
-	}
-	if ((typeof name != "string") || !name) return false;
-	if (typeof proto != "function") return false;
-	if (typeof prs[name] != "object") prs[name] = {proto: proto, init: init};
-	if (plugin || alloc) {
-		try {
-			p = {
-				init: init,
-				inited: !init,
-				initAttempt: 0,
-				initCb: false,
-				instance: "" + (pls["."] + 1),
-				name: name,
-				obj: plugin || new proto()
-			};
-			pls["."]++;
-			pls[name]["" + pls["."]] = p;
-			p.obj.$instance = p.instance;
-		} catch (e){
-			this.console(__name_script + " > " + n + ".pluginRegister(): Ошибка создания экземпляра плагина [" + name + "]. Сообщение интерпретатора: [" + e.name + "/" + e.message + "].");
-			return false;
-		}
-		if (p.init && !this.$("init").tmObj) {
-			this.$("init").tmObj = window.setTimeout(this.$("funcs").pluginsInit, 10);
-		}
-	}
-	return true;
-};
 _api.BoundSilent = function(req) {
 	req.method = req.method.toUpperCase();
 	if ((req.method != "POST") && (req.method == "GET")) {
@@ -655,80 +545,21 @@ _api.DEl = function(elname, prop, last, store_as_object) {
 _api.DElName = function(name) {
 	return this.$name + this.$instance + "-" + name;
 };
-_api.PluginWait = function(name, prop, last, inited, config, parent, cb) {
-	if (typeof this[prop] == "undefined") this[prop] = null;
-	if (typeof this[prop] == "boolean" && (!this[prop])) {
-		this.$initErr = true;
-		this.$inited = true;
-		return false;
+_api.waiterHide = function() {
+	if (this._pu == -1) {
+		this.console(__name_script + " > " + this.$name + ".waiterHide(): Плагин всплывающего (модального) окна [" + __name_popup + "] отсутствует или не инициализирован.");
+		return;
 	}
-	if (typeof this[prop] != "object") this[prop] = null;
-	if (typeof inited == "undefined") inited = true;
-	if (typeof config == "undefined") config = true;
-	if (typeof parent == "undefined") parent = this;
-	if (!this[prop]) {
-		var o = this.pluginNew(name, cb, true);
-		if (!o) {
-			this[prop] = false;
-			this.$initErr = true;
-			this.$inited = true;
-			return false;
-		}
-		this[prop] = o.obj;
-		if (o.init) {
-			if (typeof this[prop]["_init"] == "function") {
-				try {
-					if (config || parent) {
-						this[prop]._init(false, config, parent);
-					} else {
-						this[prop]._init(false);
-					}
-				} catch (e) {
-					this.console(__name_script + " > " + this.$name + ".pluginWait(): Ошибка инициализации экземпляра [" + name + "].");
-				}
-			}
-		}
-	}
-	if (inited) {
-		if (!this[prop]._inited) {
-			if (last) {
-				this.console(__name_script + " > " + this.$name + ".pluginWait(): Ошибка инициализации - таймаут ожидания требуемого плагина [" + name + "].");
-				this.$initErr = true;
-				this.$inited = true;
-				return false;
-			}
-			return true;
-		}
-	}
-	return false;
+	this._plugins[__name_popup].obj.hide(this._pu);
+	this._waiter = false;
 };
-_api.UrlParse = function(url) {
-	if (typeof url != "string") url = document.location.href;
-	var a = document.createElement('A');
-	a.href = url;
-	return {
-		source: a.href,
-		protocol: a.protocol.replace(':',''),
-		host: a.hostname,
-		port: a.port,
-		query: a.search,
-		params: (function(){
-			var ret = {},
-			seg = a.search.replace(/^\?/,'').split('&'),
-			len = seg.length, i = 0, s;
-			for (; i < len; i++) {
-				if (!seg[i]) continue;
-				s = seg[i].split('=');
-				ret[s[0]] = s[1];
-			}
-			return ret;
-		})(),
-		file: (a.pathname.match(/\/([^\/?#]+)$/i) || [,''])[1],
-		hash: a.hash.replace('#',''),
-		path: a.pathname.replace(/^([^\/])/,'/$1'),
-		relative: (a.href.match(/tps?:\/\/[^\/]+(.+)/) || [,''])[1],
-		segments: a.pathname.replace(/^\//,'').split('/')
-	};
+_api.waiterShow = function() {
+	if (this._pu == -1) {
+		this.console(__name_script + " > " + this.$name + ".waiterShow(): Плагин всплывающего (модального) окна [" + __name_popup + "] отсутствует или не инициализирован.");
+		return;
+	}
+	this._plugins[__name_popup].obj.show(this._pu);
+	this._waiter = true;
 };
 
 var ss = {};
