@@ -90,6 +90,20 @@ var _client = function(cfg, ss) {
 		}
 		this.waiterInit();
 	};
+	var _init = function() {
+		if (this.$("lang") == "ru-Ru") l = "Загрузка...";
+		else l = "Loading...";
+		var d = document.createElement("DIV");
+		d.className = this.$name + "-loader " + this.$name + "-loading";
+		d.innerHTML = "Loading...";
+		this._pu = this._plugins[__name_popup].obj.add({
+			content: d,
+			showcloser:false,
+			windowed: false
+		});
+	}
+
+
 	//--------------------- public methods ----------------------
 	this._depends = _depends;
 	this._init = _init;
