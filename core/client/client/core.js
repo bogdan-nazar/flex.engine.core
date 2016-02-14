@@ -15,12 +15,12 @@
  *
  * Требования: FlexEngine Core Script 3.2.0+
  */
-var render;//костыль совместимости
-
 (function(){
-var __name_render = "render";
+var $ = {w: window, d: document};
+var __name_this = "core";
+var __name_script = __name_this + ".js";
 //устраняем возможность двойного создания ядра
-var entity = "", p = "flex_engine_" + __name_render + "_pointer";
+var entity = "", p = "flex_engine_" + __name_this + "_pointer";
 for (var c in window) {
 	if (c.indexOf(p) == 0) {
 		entity = c;
@@ -31,146 +31,88 @@ if (!entity) return;
 var __name_lib = "lib";
 var __name_msgr = "msgr";
 var __name_popup = "popup";
-var __name_script = "render.js";
 
 (function(cfg){
-var _render = function(cfg, ss) {
+var _core = function(cfg, ss) {
 	//защищенные свойства ядра
-	var self = this;
-	this.$ = (function() {
-		var secStack = ss;
-		var $ = {
-			appName:					cfg.appName || "FlexEngine",
-			appRoot:					cfg.appRoot || "/",
-			console:					!!window.console,
-			debug:						true,
-			elNames:					{
-				Action:					cfg.elNameAction || "",
-				Form:					cfg.elNameForm || ""
-			},
-			elems:						{
-				action:					null,
-				form:					null
-			},
-			entity:						cfg.entity,
-			form:						{
-				action:					"",
-				target:					""
-			},
-			funcs:						{
-				"onPopSate":			self.historyPop.bind(self),
-				"pluginsInit":			self.pluginsInit.bind(self),
-			},
-			html5:						((!!(history.pushState && history.state !== "undefined")) && ("classList" in document.createElement("i"))),
-			init:						{
-				tm:						300,
-				tmObj:					null,
-				tryMax:					200
-			},
-			lang:						cfg.lang || "ru-Ru",
-			name:						__name_render,
-			page:						{
-				alias:					cfg.pageAlias,
-				loaded:					false,
-				template:				cfg.pageTemplate,
-				title:					cfg.pageTitle,
-				url:					{},
-				urlMode:				"first"//or "last"
-			},
-			plugins:					{".": 0},
-			protos:						{}
-		};
-		return function(n, val) {
-			var v = $;
-			if (typeof n != "string") {
-				if (!(n instanceof Array)) return null;
-				var l = n.length;
-				if (!l) return null;
-				if (l > 1) {
-					v = $;
-					for (var c = 0; c < (l - 1); c++) {
-						if (typeof v[n[c]] != "object") return null;
-						v = v[n[c]];
-					}
-					n = n[c];
-				}
-			}
-			if (typeof v[n] == "undefined") return null;
-			var s = (arguments.callee.caller.id && secStack[arguments.callee.caller.id] && (secStack[arguments.callee.caller.id] === arguments.callee.caller));
-			if (typeof val == "undefined") {
-				if (typeof v[n] == "object") return (s ? v[n] : this.clone(v[n]));
-				else return v[n];
-			} else {
-				if (!s) return null;
-				v[n] = val;
-			}
-		}
-	})();
-	this.$dirs						=	{
-		admin: "admin",
-		app: "core",
-		modules: "classes",
-		require: "require",
-		source: "",
-		templates: "templates",
-		userdata: "data"
+	var $self = this,
+		$_secStack			=	ss,
+		$appName			=	cfg.appName || "FlexEngine",
+		$appRoot			=	cfg.appRoot || "/",
+		$debug				=	true,
+		$entity				=	cfg.entity,
+		$form				=	{
+			action:				"",
+			target:				""
+		},
+		$funcs				=	{
+			"onPopSate":			self.historyPop.bind(self),
+			"pluginsInit":			self.pluginsInit.bind(self),
+		},
+		$html5				=	((!!(history.pushState && history.state !== "undefined")) && ("classList" in document.createElement("i"))),
+		$init				=	{
+			data:				{},
+			tm:					300,
+			tmObj:				null,
+			tryMax:				200
+		},
+		$lang				=	cfg.lang || "ru-Ru",
+		$name				=	__name_this,
+		$plugins			=	{".": 0},
+		$protos				=	{},
+		$dirs				=	{
+			admin: "admin",
+			app: "core",
+			modules: "classes",
+			require: "require",
+			source: "",
+			templates: "templates",
+			userdata: "data"
+		},
+		$events				=	{
+			"onPageLoaded":		{done: false, listeners: [], type: "single"},
+			"onFormSubmit":		{done: false, listeners: [], type: "multiple"}
+		},
+		$historyCbs			=	{},
+		$_onLoad		=	[],
+		$_onSubmit		=	[],
+		$_silentReqs	=	[],
+		$_silentXReqs	=	[];
+	//------------------------ methods --------------------------
+	/**
+	* Initialization
+	*/
+	var _init = function() {
+		this.pluginsInit();
 	};
-	this.$events					=	{
-		"onPageLoaded":					{done: false, listeners: [], type: "single"},
-		"onFormSubmit":					{done: false, listeners: [], type: "multiple"}
+	/**
+	* Gets plugin config from inline scripts
+	*
+	* @param {string} name plugin name
+	* @param {object} config configuration data
+	*
+	* @returns {boolean} stored
+	*/
+	var config = function(name, config) {
+		if ((typeof name != "string") || !name) return false;
+		if ((typeof config != "object") || !config) return false;
+		$init.data[name] = config;
 	};
-	this.$historyCbs				=	{};
-	this._onLoad					=	[];
-	this._onSubmit					=	[];
-	this._pu						=	-1;
-	this._silentReqs				=	[];
-	this._silentXReqs				=	[];
-	this._waiter					=	false;
-	if (this.$("html5")) this.evWinAdd(window, "popstate", this.$(["funcs", "onPopState"]));
+
+	this._init = _init;
+	this.config = config;
+
 };
-_render.prototype.___bind = (function (slice){
-	// based on [(C) WebReflection - Mit Style License]
-	function bind(context) {
-		var self = this;
-		if (1 < arguments.length) {
-			var $arguments = slice.call(arguments, 1);
-			return function() {
-				return self.apply(context, arguments.length ? $arguments.concat(slice.call(arguments)) : $arguments);
-			};
-		}
-		return function () {
-			return arguments.length ? self.apply(context, arguments) : self.call(context);
-		};
-	}
-	return bind;
-}(Array.prototype.slice));
-_render.prototype._init = function() {
-	this.$("page").url = this.urlParse();
-	var ns = this.$("elNames"), name = this.$("name");
-	//элемент Действия
-	ns.Action = document.getElementById(name + "-" + ns.Action) || false;
-	if(!ns.Action) this.console(__name_script + " > " + name + "._init(): Поле операций ядра не найдено [" + name + "-" + ns.Action + "]!");
-	//элемент Форма
-	ns.Form = document.getElementById(name + "-" + ns.Form) || false;
-	if(!ns.Form) this.console(__name_script + " > " + name + "._init(): Форма отправки данных приложения не найдена [" + name + "-" + ns.Form + "]!");
-	else {
-		this.$("form").target = ns.Form.target;
-		this.$("form").action = ns.Form.action;
-	}
-	//cfg.plugins ||
-	this.pluginsInit();
-	this.waiterInit();
-};
-_render.prototype.action = function(action, path, query, target, seed) {
+_core.prototype.action = function(action, path, query, target, seed) {
 	return this.z_sharedBoundAction(action, path, query, target, seed)
 };
-_render.prototype.console = function(msg, crit) {
+_core.prototype.console = function(msg, crit) {
 	return this.z_sharedConsole(msg, crit);
 };
-_render.prototype.clone = function() {
+_core.prototype.clone = function() {
 	return this.z_sharedClone(o, deep, skip);
 };
-_render.prototype.evWinAdd = function(el, evnt, func) {
+_core.prototype.evWinAdd = function(el, evnt, func) {
 	if (el.addEventListener) {
 		el.addEventListener(evnt, func, false);
 	} else if (el.attachEvent) {
@@ -179,7 +121,7 @@ _render.prototype.evWinAdd = function(el, evnt, func) {
 		el[evnt] = func;
 	}
 };
-_render.prototype.evWinFix = function(e) {
+_core.prototype.evWinFix = function(e) {
 	// получить объект событие для IE
 	e = e || window.event
 	// добавить pageX/pageY для IE
@@ -198,7 +140,7 @@ _render.prototype.evWinFix = function(e) {
 	}
 	return e;
 };
-_render.prototype.evWinRem = function(el, evnt, func) {
+_core.prototype.evWinRem = function(el, evnt, func) {
 	if (el.removeEventListener) {
 		el.removeEventListener(evnt, func, false);
 	} else if (el.attachEvent) {
@@ -207,7 +149,7 @@ _render.prototype.evWinRem = function(el, evnt, func) {
 		el[evnt] = null;
 	}
 };
-_render.prototype.evWinStop = function(e) {
+_core.prototype.evWinStop = function(e) {
 	if (typeof e == "undefined") return;
 	if (e.preventDefault) {
 		e.preventDefault();
@@ -217,7 +159,7 @@ _render.prototype.evWinStop = function(e) {
 		e.cancelBubble = true;
 	}
 };
-_render.prototype.footerUpdate = function() {
+_core.prototype.footerUpdate = function() {
 	var n = this.$("name");
 	var fm = document.getElementById(n + "-footer-margin");
 	var f = document.getElementById(n + "-footer");
@@ -226,11 +168,11 @@ _render.prototype.footerUpdate = function() {
 	f.style.marginTop = "-" + fh + "px";
 	fm.style.height = "" + fh + "px";
 };
-_render.prototype.getDir = function(name) {
+_core.prototype.getDir = function(name) {
 	if (typeof this.$dirs[name] != "undefined") return this.$dirs[name];
 	else return "";
 };
-_render.prototype.getOwnElem = function(name, prop) {
+_core.prototype.getOwnElem = function(name, prop) {
 	if (typeof name != "string") name = "Unknown";
 	if (typeof prop != "string") prop = false;
 	try {
@@ -242,7 +184,7 @@ _render.prototype.getOwnElem = function(name, prop) {
 	}
 	return val;
 };
-_render.prototype.getOwnProp = function(prop, child) {
+_core.prototype.getOwnProp = function(prop, child) {
 	if (typeof prop != "string") prop = "Unknown";
 	if (typeof child != "string") child = false;
 	try {
@@ -254,13 +196,13 @@ _render.prototype.getOwnProp = function(prop, child) {
 	}
 	return p;
 };
-_render.prototype.getRoot = function() {
+_core.prototype.getRoot = function() {
 	return this.$("appRoot");
 };
-_render.prototype.getTemplate = function() {
+_core.prototype.getTemplate = function() {
 	return this.$(["page", "template"]);
 };
-_render.prototype.historyWrite = function(uri, title, params) {
+_core.prototype.historyWrite = function(uri, title, params) {
 	if (!this.$("html5")) return;
 	if ((typeof uri != "string") || (!uri)) uri = "";
 	if ((typeof title != "string") || (!title)) title = document.title;
@@ -301,7 +243,7 @@ _render.prototype.historyWrite = function(uri, title, params) {
 	}
 	history.pushState(state, state.title, state.url);
 };
-_render.prototype.historyPop = function(e) {
+_core.prototype.historyPop = function(e) {
 	if (e && e.state && e.state.flexapp) {
 		document.title = e.state.title;
 		if (typeof this.$historyCbs[e.state.key] != "undefined") {
@@ -322,7 +264,7 @@ _render.prototype.historyPop = function(e) {
 		}
 	} else document.title = this.$("page").title;
 };
-_render.prototype.onLoad = function(func, instant) {
+_core.prototype.onLoad = function(func, instant) {
 	var p = this.$("page");
 	if (!p.loaded) p.loaded = true;
 	var funcs;
@@ -346,13 +288,13 @@ _render.prototype.onLoad = function(func, instant) {
 		}
 	}
 };
-_render.prototype.onLoadAdd = function(func) {
+_core.prototype.onLoadAdd = function(func) {
 	if (typeof func == "undefined") return;
 	if (typeof func == "string") func = (function(funcname) {eval(funcname + "();");}).bind(this, func);
 	if (this.$("page").loaded) this.onLoad(func);
 	this._onLoad.push(func);
 };
-_render.prototype.onSubmit = function() {
+_core.prototype.onSubmit = function() {
 	var res;
 	for (var c in this.onSubmit) {
 		if (!this.onSubmit.hasOwnProperty(c)) continue;
@@ -368,15 +310,15 @@ _render.prototype.onSubmit = function() {
 	}
 	return true;
 };
-_render.prototype.onSubmitAdd = function(func) {
+_core.prototype.onSubmitAdd = function(func) {
 	if (typeof func == "undefined") return;
 	if (typeof func == "string") func = (function(funcname) {eval(funcname + "();");}).bind(this, func);
 	this._onSubmit.push(func);
 };
-_render.prototype.plugin = function(name, instance, struct) {
+_core.prototype.plugin = function(name, instance, struct) {
 	return this.z_sharedBoundPlugin(name, instance, struct);
 };
-_render.prototype.pluginExt = function(plugin) {
+_core.prototype.pluginExt = function(plugin) {
 	if (typeof plugin == "function") plugin = plugin.prototype;
 	for (var c in plugin) {
 		if (!plugin.hasOwnProperty(c)) continue;
@@ -400,10 +342,10 @@ _render.prototype.pluginExt = function(plugin) {
 		}
 	}
 };
-_render.prototype.pluginNew = function(name, readyCb, struct) {
+_core.prototype.pluginNew = function(name, readyCb, struct) {
 	return this.z_sharedBoundPluginNew(name, readyCb, struct);
 };
-_render.prototype.pluginsInit = function() {
+_core.prototype.pluginsInit = function() {
 	var init = this.$("init"),
 		n = this.$("name"), notInitedYet = 0,
 		p, pls = this.$("plugins");
@@ -450,13 +392,10 @@ _render.prototype.pluginsInit = function() {
 	}
 	if (notInitedYet && !(init.tmObj)) init.tmObj = window.setTimeout(this.$("funcs").pluginsInit, init.tm);
 };
-_render.prototype.seed = function() {
-	return this.z_sharedSeed();
-};
-_render.prototype.silent = function(reg) {
+_core.prototype.silent = function(reg) {
 	return this.z_sharedBoundSilent(req);
 }
-_render.prototype.silentDataBuild = function(d, merge, encode, str) {
+_core.prototype.silentDataBuild = function(d, merge, encode, str) {
 	if (typeof merge != "object") merge = false;
 	if (typeof encode != "boolean") encode = true;
 	if (typeof str != "boolean") str = true;
@@ -503,7 +442,7 @@ _render.prototype.silentDataBuild = function(d, merge, encode, str) {
 		return (p.join("&") || "");
 	} else return d;
 };
-_render.prototype.silentOnState = function(req) {
+_core.prototype.silentOnState = function(req) {
 	if (req.done) return;//? что-то пошло не так :/
 	if (req.r.readyState != 4) return;
 	var n = this.$("name");
@@ -596,7 +535,7 @@ _render.prototype.silentOnState = function(req) {
 			break;
 		}
 };
-_render.prototype.silentReqBuild = function(o) {
+_core.prototype.silentReqBuild = function(o) {
 	if (typeof o == "undefined") o = null;
 	var req = {
 		action:			"",
@@ -624,7 +563,7 @@ _render.prototype.silentReqBuild = function(o) {
 	};
 	return req;
 };
-_render.prototype.silentReqPendingFind = function(action) {
+_core.prototype.silentReqPendingFind = function(action) {
 	if (typeof action != "string") return false;
 	for (var c in this._silentReqs) {
 		if (!this._silentReqs.hasOwnProperty(c)) continue;
@@ -632,10 +571,10 @@ _render.prototype.silentReqPendingFind = function(action) {
 	}
 	return false;
 };
-_render.prototype.silentX = function(reg) {
+_core.prototype.silentX = function(reg) {
 	return this.z_sharedBoundSilentX(req);
 }
-_render.prototype.silentXFormFieldAdd = function(form, name, value) {
+_core.prototype.silentXFormFieldAdd = function(form, name, value) {
 	if (typeof form == "undefined") return false;
 	if (typeof name == "undefined") return false;
 	if (typeof value == "undefined") value = "false";
@@ -729,7 +668,7 @@ _render.prototype.silentXFormFieldAdd = function(form, name, value) {
 	}
 	return true;
 };
-_render.prototype.silentXOnReady = function(req) {
+_core.prototype.silentXOnReady = function(req) {
 	if (req.done) return;
 	var n = this.$("name");
 	if (typeof req.statusUrl == "string") {
@@ -750,7 +689,7 @@ _render.prototype.silentXOnReady = function(req) {
 	this._plugins[__name_lib].obj.eventRemove(req.domWorker, "load", req.onready);
 	req.domWorker.parentNode.parentNode.removeChild(req.domWorker.parentNode);
 };
-_render.prototype.silentXOnStatus = function(resp, key) {
+_core.prototype.silentXOnStatus = function(resp, key) {
 	var n = this.$("name");
 	for (var c in this._silentXReqs) {
 		if (!this._silentXReqs.hasOwnProperty(c)) continue;
@@ -850,7 +789,7 @@ _render.prototype.silentXOnStatus = function(resp, key) {
 	this.console(__name_script + " > " + n + ".silentXOnStatus(): Предупреждение, получен статус незарегистрированной операции [key: " + key + "]. Содержимое ответа: ");
 	this.console(resp);
 };
-_render.prototype.silentXReqBuild = function(o) {
+_core.prototype.silentXReqBuild = function(o) {
 	if (typeof o == "undefined") o = null;
 	var r = {
 		action:			"",
@@ -881,14 +820,14 @@ _render.prototype.silentXReqBuild = function(o) {
 	};
 	return r;
 };
-_render.prototype.silentXReqFetch = function(key) {
+_core.prototype.silentXReqFetch = function(key) {
 	for (var c in this._silentXReqs) {
 		if (!this._silentXReqs.hasOwnProperty(c)) continue;
 		if (this._silentXReqs[c].key == key) return this._silentXReqs[c];
 	}
 	return false;
 };
-_render.prototype.silentXReqPendingFind = function(action) {
+_core.prototype.silentXReqPendingFind = function(action) {
 	if (typeof action != "string") return false;
 	for (var c in this._silentXReqs) {
 		if (!this._silentXReqs.hasOwnProperty(c)) continue;
@@ -896,38 +835,10 @@ _render.prototype.silentXReqPendingFind = function(action) {
 	}
 	return false;
 };
-_render.prototype.urlParse = function(url) {
+_core.prototype.urlParse = function(url) {
 	return this.z_sharedUrlParse(url);
 };
-_render.prototype.waiterHide = function() {
-	if (this._pu == -1) {
-		this.console(__name_script + " > " + this.$name + ".waiterHide(): Плагин всплывающего (модального) окна [" + __name_popup + "] отсутствует или не инициализирован.");
-		return;
-	}
-	this._plugins[__name_popup].obj.hide(this._pu);
-	this._waiter = false;
-};
-_render.prototype.waiterInit = function() {
-	if (this.$("lang") == "ru-Ru") l = "Загрузка...";
-	else l = "Loading...";
-	var d = document.createElement("DIV");
-	d.className = this.$name + "-loader " + this.$name + "-loading";
-	d.innerHTML = "Loading...";
-	this._pu = this._plugins[__name_popup].obj.add({
-		content: d,
-		showcloser:false,
-		windowed: false
-	});
-}
-_render.prototype.waiterShow = function() {
-	if (this._pu == -1) {
-		this.console(__name_script + " > " + this.$name + ".waiterShow(): Плагин всплывающего (модального) окна [" + __name_popup + "] отсутствует или не инициализирован.");
-		return;
-	}
-	this._plugins[__name_popup].obj.show(this._pu);
-	this._waiter = true;
-};
-_render.prototype.xmlHttpGet = function() {
+_core.prototype.xmlHttpGet = function() {
 	var r;
 	try {
 		r = new ActiveXObject("Msxml2.XMLHTTP");
@@ -946,41 +857,98 @@ _render.prototype.xmlHttpGet = function() {
 	}
 	return r;
 };
-_render.prototype.z_sharedBoundAction = function(action, path, query, target, seed) {
-	var n = this.$("elNames");
-	n.Action.value = "" + action;
-	n.Form.target = ((typeof target == "string") && target) ? target : this.$("form").target;
-	n.Form.action = this._plugins[__name_lib].obj.urlBuild(path, query, seed);
-	n.Form.submit();
-};
-_render.prototype.z_sharedBoundAlert = function(id, type) {
-	if (typeof this._alerts == "undefined") {
-		this._alerts = {};
-		this.console(__name_script + " > " + this.$name + ".alert() > Неизвестный идентификатор сообщения [" + id + "].");
-		return;
-	};
-	if (typeof this._alerts[id] == "undefined") {
-		this.console(__name_script + " > " + this.$name + ".alert() > Неизвестный идентификатор сообщения [" + id + "].");
-		return;
-	} else {
-		if (this._alerts[id].id != -1) msg = this._alerts[id].id;
-		else msg = "";
-	}
-	var sh = -1;
-	if (this.plMsgr) {
-		if (typeof msg == "number") {
-			sh = this.plMsgr.dlgAlert(msg);
-		} else {
-			if (typeof type != "string") type = "inf";
-			sh = this.plMsgr.dlgAlert(this._alerts[id].msg, type);
-			if (sh != -1) this._alerts[id].id = sh;
+//----------------------- ------- ---------------------------
+//-------------------- shared methods -----------------------
+var _api = {};
+/**
+* Non-conflict .bind function
+*/
+_api.___bind = (function (slice){
+	// based on [(C) WebReflection - Mit Style License]
+	function bind(context) {
+		var self = this;
+		if (1 < arguments.length) {
+			var $arguments = slice.call(arguments, 1);
+			return function() {
+				return self.apply(context, arguments.length ? $arguments.concat(slice.call(arguments)) : $arguments);
+			};
 		}
+		return function () {
+			return arguments.length ? self.apply(context, arguments) : self.call(context);
+		};
 	}
-	if (sh == -1) {
-		window.alert(this._alerts[id].msg);
+	return bind;
+}(Array.prototype.slice));
+/**
+* Function for cloning the objects
+*
+* @param o Object - object to clone
+*/
+_api.clone = function() {
+	if ((typeof o != "object") || !o) return o;
+	var maxRec = 100;//safe exit for deep mode
+	var curRec = -1;
+	if (typeof deep != "boolean") {
+		if (typeof deep != "number") deep = maxRec;
+		else {
+			if (deep < 0) deep = 0;
+		}
+	} else {
+		if (deep) deep = maxRec;
+		else deep = 0;
 	}
+	if ((typeof skip != "object") || !(skip instanceof Array)) skip = false;
+	var pts = [];
+	var findPt = function(o) {
+		var l = pts.length;
+		for (var c = 0; c < l; c++) {
+			if (pts[c][0] === o) return pts[c][1];
+		}
+		if (skip) {
+			l = skip.length;
+			for (var c = 0; c < l; c++) {
+				if ((typeof skip != "object") || !skip) continue;
+				if (skip[c] === o) return o;
+			}
+		}
+		return false;
+	};
+	var worker, no = {};
+	worker = function(o, no) {
+		curRec++;
+		pts.push([o, no]);
+		var rec = true;
+		if ((curRec >= deep) || (curRec >= maxRec)) rec = false;
+		for (var c in o) {
+			if (!o.hasOwnProperty(c)) continue;
+			if (rec && (typeof o[c] == "object") && o[c]) {
+				no[c] = findPt(o[c]);
+				if (no[c] === false) {
+					no[c] = (o[c] instanceof Array ? [] : {});
+					worker(o[c], no[c]);
+				}
+			} else no[c] = o[c];
+		}
+	};
+	worker(o, no);
+	return no;
 };
-_render.prototype.z_sharedBoundPlugin = function(name, instance, struct) {
+/**
+* Random seed
+*/
+_api.prototype.seed = function() {
+	return "" + $.w.Math ? ($.w.Math.floor(($.w.Math.random()*1000000000) + 1)) : (new Date()).getTime();
+};
+/**
+* Gets pointer to the plugin object
+*
+* @param name String - name of the plugin
+* @param instance String - instance id
+* @param instance String - instance id
+*
+* @returns plug Object - plugin object
+*/
+_api.plugin = function(name, instance, struct) {
 	if ((typeof name != "string") || !name) return false;
 	instance = "" + instance;
 	if (typeof struct != "boolean") struct = false;
@@ -995,7 +963,7 @@ _render.prototype.z_sharedBoundPlugin = function(name, instance, struct) {
 	}
 	return null;
 };
-_render.prototype.z_sharedBoundPluginNew = function(name, readyCb, struct) {
+_api.pluginNew = function(name, readyCb, struct) {
 	if ((typeof name != "string") || !name) return false;
 	if (typeof init != "boolean") init = true;
 	if (typeof readyCb != "function") readyCb = false;
@@ -1033,7 +1001,7 @@ _render.prototype.z_sharedBoundPluginNew = function(name, readyCb, struct) {
 	if (struct) return p;
 	else return p.obj;
 };
-_render.prototype.z_sharedBoundPluginReg = function(plugin, name, init) {
+_api.pluginReg = function(plugin, name, init) {
 	if (typeof name == "undefined") name = true;
 	if (typeof init != "boolean") init = true;
 	this.pluginExt(plugin);
@@ -1077,7 +1045,7 @@ _render.prototype.z_sharedBoundPluginReg = function(plugin, name, init) {
 	}
 	return true;
 };
-_render.prototype.z_sharedBoundSilent = function(req) {
+_api.silent = function(req) {
 	req.method = req.method.toUpperCase();
 	if ((req.method != "POST") && (req.method == "GET")) {
 		this.console(__name_script + " > " + this.$("name") + ".silent(): Неизвестный метод [" + req.method + "], операция прервана.");
@@ -1116,7 +1084,7 @@ _render.prototype.z_sharedBoundSilent = function(req) {
 	req.sent = true;
 	return true;
 };
-_render.prototype.z_sharedBoundSilentX = function(req) {
+_api.silentX = function(req) {
 	var n = this.$("name");
 	req.method = req.method.toUpperCase();
 	if ((req.method != "POST") && (req.method != "GET")) {
@@ -1197,105 +1165,15 @@ _render.prototype.z_sharedBoundSilentX = function(req) {
 	req.sent = true;
 	return true;
 };
-_render.prototype.z_sharedClone = function(o, deep, skip) {
-	if ((typeof o != "object") || !o) return o;
-	var maxRec = 100;//safe exit for deep mode
-	var curRec = -1;
-	if (typeof deep != "boolean") {
-		if (typeof deep != "number") deep = maxRec;
-		else {
-			if (deep < 0) deep = 0;
-		}
-	} else {
-		if (deep) deep = maxRec;
-		else deep = 0;
-	}
-	if ((typeof skip != "object") || !(skip instanceof Array)) skip = false;
-	var pts = [];
-	var findPt = function(o) {
-		var l = pts.length;
-		for (var c = 0; c < l; c++) {
-			if (pts[c][0] === o) return pts[c][1];
-		}
-		if (skip) {
-			l = skip.length;
-			for (var c = 0; c < l; c++) {
-				if ((typeof skip != "object") || !skip) continue;
-				if (skip[c] === o) return o;
-			}
-		}
-		return false;
-	};
-	var worker, no = {};
-	worker = function(o, no) {
-		curRec++;
-		pts.push([o, no]);
-		var rec = true;
-		if ((curRec >= deep) || (curRec >= maxRec)) rec = false;
-		for (var c in o) {
-			if (!o.hasOwnProperty(c)) continue;
-			if (rec && (typeof o[c] == "object") && o[c]) {
-				no[c] = findPt(o[c]);
-				if (no[c] === false) {
-					no[c] = (o[c] instanceof Array ? [] : {});
-					worker(o[c], no[c]);
-				}
-			} else no[c] = o[c];
-		}
-	};
-	worker(o, no);
-	return no;
-};
-_render.prototype.z_sharedConfigWait = function(config, last, func) {
-	if (typeof this.$config != "object" || (!this.$config)) {
-		this.$config = {};
-		this.$config.$loaded = true;
-		return false;
-	}
-	if (typeof this.$config.$loaded != "boolean") this.$config.$loaded = false;
-	if (this.$config.$loaded) return false;
-	else {
-		if (last) {
-			this.console(__name_script + " > " + this.$name + ".configWait() > Плагин не инициализирован - таймаут ожидания конфигурационных данных.");
-			this.$initErr = true;
-			this.$inited = true;
-			return false;
-		}
-	}
-	if (typeof func == "undefined") func = "_configImport";
-	else {
-		if (typeof func == "string") {
-			if (typeof this[func] != "function") func = "_configImport";
-		} else {
-			if (typeof func != "function") func = "_configImport";
-		}
-	}
-	if (typeof func == "string") {
-		if (typeof this[func] != "function") {
-			this.$config = {};
-			this.$config.$loaded = true;
-			return false;
-		} else func = this[func];
-	}
-	var res;
-	try {
-		res = func.apply(this, [config]);
-		if (typeof res != "boolean") res = true;
-	} catch(e) {
-		res = false;
-		this.$initErr = true;
-		this.$inited = true;
-		this.console(__name_script + " > " + this.$name + ".configWait(): Ошибка инициализации плагина, функция импорта выполнена с ошибкой. Сообщение интерпретатора: [" + e.name + "/" + e.message + "].");
-	}
-	return !res;
-};
-_render.prototype.z_sharedConsole = function(msg, crit) {
+
+
+_api.Console = function(msg, crit) {
 	if (crit) this.dlgAlert(msg);
 	else {
 		if (this.$("console")) window.console.log(msg);
 	}
 };
-_render.prototype.z_sharedDEl = function(elname, prop, last, store_as_object) {
+_api.DEl = function(elname, prop, last, store_as_object) {
 	var name = "";
 	if (typeof store_as_object != "string") {
 		store_as_object = false;
@@ -1331,10 +1209,10 @@ _render.prototype.z_sharedDEl = function(elname, prop, last, store_as_object) {
 	}
 	return false;
 };
-_render.prototype.z_sharedDElName = function(name) {
+_api.DElName = function(name) {
 	return this.$name + this.$instance + "-" + name;
 };
-_render.prototype.z_sharedPluginWait = function(name, prop, last, inited, config, parent, cb) {
+_api.PluginWait = function(name, prop, last, inited, config, parent, cb) {
 	if (typeof this[prop] == "undefined") this[prop] = null;
 	if (typeof this[prop] == "boolean" && (!this[prop])) {
 		this.$initErr = true;
@@ -1381,13 +1259,7 @@ _render.prototype.z_sharedPluginWait = function(name, prop, last, inited, config
 	}
 	return false;
 };
-_render.prototype.z_sharedSeed = function() {
-	if (typeof Math != "undefined")
-		return "" + (Math.floor((Math.random()*1000000000) + 1));
-	else
-		return (new Date()).getTime();
-};
-_render.prototype.z_sharedUrlParse = function(url) {
+_api.UrlParse = function(url) {
 	if (typeof url != "string") url = document.location.href;
 	var a = document.createElement('A');
 	a.href = url;
@@ -1417,19 +1289,19 @@ _render.prototype.z_sharedUrlParse = function(url) {
 };
 
 var ss = {};
-for (var c in _render.prototype) {
-	if (!_render.prototype.hasOwnProperty(c)) continue;
-	if (typeof _render.prototype[c] == "function") {
-		_render.prototype[c].bind = _render.prototype.___bind;
-		_render.prototype[c].id = "" + (Math.floor((Math.random() * 1000000000) + 1));
-		ss[_render.prototype[c].id] = _render.prototype[c];
+for (var c in _core.prototype) {
+	if (!_core.prototype.hasOwnProperty(c)) continue;
+	if (typeof _core.prototype[c] == "function") {
+		_core.prototype[c].bind = _core.prototype.___bind;
+		_core.prototype[c].id = "" + (Math.floor((Math.random() * 1000000000) + 1));
+		ss[_core.prototype[c].id] = _core.prototype[c];
 	}
 }
 
 try {
 	render = new _render(window[entity].cfg, ss);
 } catch (e) {
-	if (window.console) window.console.log(__name_script + " > Объект ядра [" + __name_render + "] не создан, зависимые плагины не будут инициализированы. Сообщение интерпретатора: [" + e.name + "/" + e.message + "]");
+	if (window.console) window.console.log(__name_script + " > Объект ядра [" + __name_this + "] не создан, зависимые плагины не будут инициализированы. Сообщение интерпретатора: [" + e.name + "/" + e.message + "]");
 	return;
 }
 
