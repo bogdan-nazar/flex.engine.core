@@ -33,6 +33,7 @@ define("MEDIA_WRITEMODE_INSERT",0);
 define("MEDIA_WRITEMODE_UPDATE",1);
 final class media
 {
+	private static $_runStep	=	0;
 	private static $c			=	NULL;
 	private static $config		=	array(
 		"batchMaxCount"			=>	1000,
@@ -1855,23 +1856,82 @@ final class media
 	}
 
 	/**
-	* Запись данных в сессию
-	*
+	* Чтение данных из сессии
 	*/
 	private static function _sessionRead()
 	{
-		if(isset($_SESSION[self::$class."-data"]))
-			self::$session=unserialize($_SESSION[self::$class."-data"]);
+		//распаковываем сессию
+		$sesName=FLEX_APP_NAME."-".self::$class."-data";
+		if(isset($_SESSION[$sesName]))self::$session=unserialize($_SESSION[$sesName]);
+		//убеждаемся, что сессия была корректно сохранена
+		if(!is_array(self::$session))self::$session=array();
+		//читаем данные
+		if(isset(self::$session["files"]) && is_array(self::$session["files"]))
+		{
+			//если через POST пришли новые файлы,
+			//то объединяем их со списком ранее загруженных файлов
+			if(count(self::$files))
+			{
+				//перебираем все файлы сессии и проверяем их на предмет
+				//совпадения id с новыми файлами
+				foreach(self::$session["files"] as $id=>&$file)
+				{
+					//если в сессии уже имеется файл с таким же id,
+					//который присутствует в новых POST-данных,
+					//то удаляем его из сессии и с диска и заменяем новым файлом
+					if(isset(self::$files[$id]))
+					{
+						$toDel=array();
+						if(isset($file[$id]["tmp_name"]))$toDel[]=$file[$id];
+						else $toDel=$file[$id];
+						foreach($toDel as $del)@unlink($del["tmp_name"]);
+						self::$session["files"][$id]=&self::$files[$id];
+					}
+					else self::$files[$id]=&$file;
+				}
+			}
+			else self::$files=&self::$session["files"];
+		}
 	}
 
 	/**
-	* Чтение данных из сессии
-	*
+	* Запись данных в сессию
 	*/
 	private static function _sessionWrite()
 	{
-		if(count(self::$session))
-			$_SESSION[self::$class."-data"]=serialize(self::$session);
+		//убеждаемся, что сессия не была повреждена во время выполнения
+		if(!is_array(self::$session))self::$session=array();
+		//записываем данные
+		$now=time();
+		foreach(self::$files as $id=>&$file)
+		{
+			//если id указывает не на один файл, а на список файлов,
+			//то проверяем этот список
+			if(!isset($file["tmp_name"]) && isset($file[0]))
+			{
+				foreach($file as $idx=>$file1)
+				{
+					if(!isset($file1["moved"]) || ($file1["moved"]===false))
+					{
+						if($now-$file1["time"]>self::$config["maxFileAge"])@unlink($file1["tmp_name"]);
+						unset(self::$files[$id][$idx]);
+					}
+				}
+				//если после проверки все файлы из списка билы удаленыя,
+				//то удаляем весь список
+				if(!count(self::$files[$id]))unset(self::$files[$id]);
+			}
+			//проверяем список загруженных файлов
+			//и удаляем "просроченные"
+			if(!isset($file["moved"]) || ($file["moved"]===false))
+			{
+				if($now-$file["time"]>self::$config["maxFileAge"])@unlink($file["tmp_name"]);
+				unset(self::$files[$id]);
+			}
+		}
+		self::$session["files"]=&self::$files;
+		//пакуем сессию
+		$_SESSION[FLEX_APP_NAME."-".self::$class."-data"]=serialize(self::$session);
 	}
 
 	private static function _thumb($item,$type,$size=false,$src=false,$dest=false)
@@ -1976,6 +2036,8 @@ final class media
 	*/
 	public static function _exec()
 	{
+		if(self::$_runStep!=1)return;
+		self::$_runStep++;
 		if(auth::admin())
 		{
 			if(self::$c->silent())
@@ -1992,6 +2054,8 @@ final class media
 
 	public static function _init()
 	{
+		if(self::$_runStep)return;
+		self::$_runStep++;
 		if(strpos(self::$class,"\\")!==false)
 		{
 			$cl=explode("\\",self::$class);
@@ -2000,13 +2064,6 @@ final class media
 		self::$c=_a::core();
 		self::$silent=self::$c->silent();
 		self::$uid=auth::user("id");
-		//читаем сессию
-		self::_sessionRead();
-		if(isset(self::$session["files"]))
-		{
-			self::$files=self::$session["files"];
-			if(!is_array(self::$files))self::$files=array();
-		}
 		//проверяем поддерживаемые типы
 		$types=imagetypes();
 		if($types & IMG_GIF)self::$imgSup[]=MEDIA_IMG_GIF;
@@ -2025,17 +2082,9 @@ final class media
 		}
 	}
 
-	public static function _render()
-	{
-	}
-
 	public static function _sleep()
 	{
-		foreach(self::$files as $name=>$file)
-			if(!isset($file["moved"]) || ($file["moved"]===false))
-				@unlink($file["tmp_name"]);
-		self::$files=array();
-		unset(self::$session["files"]);
+		self::_sessionWrite();
 	}
 
 	public static function captcha($str,$wid=150,$ht=50,$echo=true,$bgFile="")
@@ -2126,7 +2175,46 @@ final class media
 				return false;
 			}
 		}
-		foreach($_FILES as $name=>$file)
+		//нормализуем массив файлов, так как он может передаваться
+		//в разных по формату структурах
+		$filesMap=array();
+		/*
+		[name] => MyFile.jpg
+		[type] => image/jpeg
+		[tmp_name] => /tmp/php/php6hst32
+		[error] => UPLOAD_ERR_OK
+		[size] => 98174
+		*/
+		foreach($_FILES as $id=>&$file)
+		{
+			if(@is_string($file["tmp_name"]))
+			{
+				$file["id"]=$id;
+				$filesMap[]=&$file;
+			}
+			else
+			{
+				if(@is_array($file["tmp_name"]) && @is_array($file["name"]))
+				{
+					$fileNames=&$file["name"];
+					foreach($fileNames as $ord=>$name)
+					{
+						$file1=array(
+							"id"		=> $id,
+							"name"		=> $name,
+							"type"		=> $file["type"][$ord],
+							"tmp_name"	=> $file["tmp_name"][$ord],
+							"error"		=> $file["error"][$ord],
+							"size"		=> $file["size"][$ord]
+						);
+						$filesMap[]=&$file1;
+					}
+				}
+			}
+		}
+		//перемещаем распознанные по типу файлы
+		//в собственное хранилище
+		foreach($filesMap as $idx=>&$file)
 		{
 			if(!$file["error"])
 			{
@@ -2146,18 +2234,30 @@ final class media
 					$fname=$updir."/".md5($file["tmp_name"].time()).".tmp";
 					if((@move_uploaded_file($file["tmp_name"],$fname))===true)
 					{
-						@chmod($fname,0777);
-						self::$files[$name]=$file;
-						self::$files[$name]["tmp_name"]=$fname;
-						self::$files[$name]["moved"]=false;
+						if(@chmod($fname,0777))
+						{
+							$file["tmp_name"]=$fname;
+							$file["moved"]=false;
+							$file["time"]=time();
+							$id=$file["id"];
+							if(isset(self::$files[$id]))
+							{
+								if(isset(self::$files[$id]["tmp_name"]))
+								{
+									$file1=self::$files[$id];
+									self::$files[$id]=array();
+									self::$files[$id][]=&$file1;
+								}
+								self::$files[$id][]=&$file;
+							}
+							else self::$files[$id]=&$file;
+						}
 					}
 				}
 			}
 		}
 		$_FILES=array();
 		self::_sessionRead();
-		self::$session["files"]=self::$files;
-		self::_sessionWrite();
 	}
 
 	/**
@@ -2772,18 +2872,22 @@ final class media
 		return $m;
 	}
 
-	public static function postFile($key)
+	public static function postFile($id)
 	{
-		if(isset(self::$files[$key]))
-			return self::$files[$key];
-		else
-			return "";
+		if(isset(self::$files[$id]))return self::$files[$id];
+		else return false;
 	}
 
-	public static function postFileMoved($key)
+	public static function postFileMoved($id,$idx=0)
 	{
-		if(isset(self::$files[$key]))
-			return self::$files[$key]["moved"]=true;
+		if(isset(self::$files[$id]))
+		{
+			if(isset(self::$files[$id]["tmp_name"]))self::$files[$id]["moved"]=true;
+			else
+			{
+				if(isset(self::$files[$id][$idx]))self::$files[$id][$idx]=true;
+			}
+		}
 	}
 
 	/**

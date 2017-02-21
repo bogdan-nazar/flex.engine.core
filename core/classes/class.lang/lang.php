@@ -3,97 +3,98 @@ namespace FlexEngine;
 defined("FLEX_APP") or die("Forbidden.");
 final class lang
 {
-	private static $class	=	__CLASS__;
-	private static $items	=	array(
-		"en-Us"		=>	array (
-		)
-	);
-	private static $lang	=	"en-Us";
-	private static $langs	=	array("ru-Ru","en-Us");
+	private static $_runStep	=	0;
+	private static $class		=	__CLASS__;
+	private static $items		=	false;
+	private static $lang		=	"ru-Ru";
+	private static $langDef		=	"ru-Ru";
+	private static $langs		=	array("ru-Ru");
+	private static $nameData	=	"data";
+	private static $nameSes		=	"";
+	private static $nameVar		=	"code";
 
-	private static function _getLang($l)
+	private static function _set($l)
 	{
-		self::$lang=$l;
-	}
-
-	private static function _setLang($l)
-	{
-		setcookie("langLang",$l,time()+3600*24*365*2,"/");
-		$_SESSION["langLang"]=$l;
-		self::$lang=$l;
-	}
-
-	public static function _reder()
-	{
-
+		if(in_array($l,self::$langs))
+		{
+			setcookie(self::$nameSes,$l,time()+3600*24*365*2,"/");
+			$_SESSION[self::$nameSes]=$l;
+			self::$lang=$l;
+		}
 	}
 
 	public static function _exec()
 	{
+		if(self::$_runStep!=1)return;
+		self::$_runStep++;
 	}
 
-	public static function _init()
+	public static function _init($abnormal=false)
 	{
+		if(self::$_runStep)return;
+		self::$_runStep++;
 		if(strpos(self::$class,"\\")!==false)
 		{
 			$cl=explode("\\",self::$class);
 			self::$class=$cl[count($cl)-1];
 		}
-		if(isset($_POST["langLang"]))
+		self::$nameVar=self::$class."-".self::$nameVar;
+		self::$nameSes=FLEX_APP_NAME."-".self::$nameVar;
+		$data=FLEX_APP_DIR_DAT."/_".self::$class."/".self::$nameData.".php";
+		if(@file_exists($data))
 		{
-			if(in_array($_POST["langLang"],self::$langs))
+			include $data;
+			if(isset($items) && is_array($items))
 			{
-				self::_setLang($_POST["langLang"]);
-				header("Location: ".$_SERVER["HOST_NAME"].$_SERVER["REQUEST_URI"]);
-				die("Redirecting...");
+				$langs=array_keys($items);
+				$l=count($langs);
+				for($c=0;$c<$l;$c++)
+				{
+					self::$langs[]=$langs[$c];
+					self::$items[$langs[$c]]=$items[$langs[$c]];
+				}
 			}
 		}
-		if(isset($_SESSION["langLang"]))
-			self::_getLang($_SESSION["langLang"]);
-		else
+		if(!$abnormal)
 		{
-			if(isset($_COOKIE["langLang"]))
+			if(isset($_POST[self::$nameVar]))
 			{
-				if(in_array($_COOKIE["langLang"],self::$langs))
-					self::_getLang($_COOKIE["langLang"]);
+				if(self::_set($_POST[self::$nameVar]))
+				{
+					header("Location: ".$_SERVER["HOST_NAME"].$_SERVER["REQUEST_URI"]);
+					die("Redirecting...");
+				}
 			}
 		}
-	}
-
-	public static function _sleep()
-	{
-	}
-
-	public static function _($s)
-	{
-		if(isset(self::$items[self::$lang][$s]))
-			return self::$items[self::$lang][$s];
+		if(isset($_SESSION[self::$nameSes]))self::_set($_SESSION[self::$nameSes]);
 		else
-			return $s;
-	}
-
-	public static function _renderBtn()
-	{
-		if(self::$lang=="ru-Ru")
-			$img="en-Us";
-		else
-			$img="ru-Ru";
-?>
-	<script type="text/javascript">
-		function langChange(l) {
-			var d = document.getElementById("langLang");
-			var s = document.getElementById("langSmt");
-			d.value = l;
-			s.click();
+		{
+			if(isset($_COOKIE[self::$nameSes]))self::_set($_COOKIE[self::$nameSes]);
 		}
-	</script>
-	<div id="langBtn" style="float:left;margin-right:10px;width:24px;height:18px;background:url('img/flag-<?=$img?>.jpg') center no-repeat;cursor:pointer;" onclick="langChange('<?=$img?>')">
-		<form action="" method="post">
-			<input type="hidden" id="langLang" name="filemanLang" value="" />
-			<input type="submit" id="langSmt" value="_" style="display:none;" />
-		</form>
-	</div>
-<?
+	}
+
+	public static function _sleep(){}
+
+	public static function _($s,$args)
+	{
+		if(is_string($s))return $s;
+		$msg="[Unknown message]";
+		$msgs=false;
+		if(isset(self::$items[self::$lang]))
+		{
+			$msgs=&self::$items[self::$lang];
+			if(isset($msgs[$s]))$msg=$msgs[$s];
+		}
+		else
+		{
+			if(isset(self::$items[self::$langDef]))
+			{
+				$msgs=&self::$items[self::$langDef];
+				if(isset($msgs[$s]))$msg=$msgs[$s];
+			}
+		}
+		if(count($args))$msg=vsprintf($msg,$args);
+		return $msg;
 	}
 
 	public static function cur()
@@ -103,8 +104,69 @@ final class lang
 
 	public static function def()
 	{
-		return"ru-Ru";
+		return self::$langDef;
+	}
+
+	public static function extend($items)
+	{
+		if(isset($items) && is_array($items))
+		{
+			$langs=array_keys($items);
+			$l=count($langs);
+			for($c=0;$c<$l;$c++)
+			{
+				$lang=$langs[$c];
+				if(!is_array($items[$lang]))continue;
+				if(isset(self::$items[$lang]))self::$items[$lang]=array_merge(self::$items[$lang],$items[$lang]);
+				else self::$items[$lang]=$items[$lang];
+			}
+		}
+	}
+
+	public static function index()
+	{
+		return count(self::$items["ru-Ru"]);
+	}
+
+	public static function itemsDef($items)
+	{
+		if(self::$items)return;
+		self::$items=&$items;
 	}
 }
-function _t($s){return lang::_($s);}
+//идентификаторы строк
+$i=0;
+define("LANG_CONTENT_DELETED",$i++);
+define("LANG_CONTENT_P404",$i++);
+define("LANG_CORE_CRIT_CFG",$i++);
+define("LANG_CORE_CRIT_CFG_DATA",$i++);
+
+define("LANG_MSGR_BTN_CAP_CANCEL",$i++);
+define("LANG_MSGR_BTN_CAP_CLOSE",$i++);
+define("LANG_MSGR_BTN_CAP_CONFIRM",$i++);
+define("LANG_MSGR_DALERT_TITLE_INF",$i++);
+define("LANG_MSGR_DALERT_TITLE_ERR",$i++);
+define("LANG_MSGR_DALERT_TITLE_WRN",$i++);
+define("LANG_MSGR_DCONFIRM_TITLE",$i++);
+define("LANG_MSGR_MSG_TITLE",$i++);
+//строки по умолчанию
+lang::itemsDef(array(
+	"ru-Ru"	=> array(
+		LANG_CONTENT_DELETED				=>	"Страница удалена или перемещена",
+		LANG_CONTENT_P404					=>	"Страница не найдена",
+		LANG_CORE_CRIT_CFG					=>	"Критическая ошибка: файл конфигурации не найден.",
+		LANG_CORE_CRIT_CFG_DATA				=>	"Критическая ошибка: конфигурационные данные не найдены.",
+
+		LANG_MSGR_BTN_CAP_CANCEL			=>	"Отмена",
+		LANG_MSGR_BTN_CAP_CLOSE				=>	"Закрыть",
+		LANG_MSGR_BTN_CAP_CONFIRM			=>	"Подтвердить",
+		LANG_MSGR_DALERT_TITLE_INF			=>	"Информация",
+		LANG_MSGR_DALERT_TITLE_ERR			=>	"Ошибка",
+		LANG_MSGR_DALERT_TITLE_WRN			=>	"Внимание",
+		LANG_MSGR_DCONFIRM_TITLE			=>	"Подтвердите действие",
+		LANG_MSGR_MSG_TITLE					=>	"Сообщение системы"
+	),
+));
+//ярлык для быстрого доступа к функции перевода
+function _t($s,$args=array()){return lang::_($s,$args);}
 ?>

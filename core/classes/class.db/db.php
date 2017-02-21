@@ -3,6 +3,7 @@ namespace FlexEngine;
 defined("FLEX_APP") or die("Forbidden.");
 final class db
 {
+	private static $_runStep	=	0;
 	private static $c			=	NULL;
 	private static $class		=	__CLASS__;
 	private static $config		=	array(
@@ -36,10 +37,14 @@ final class db
 
 	public static function _exec()
 	{
+		if(self::$_runStep!=1)return;
+		self::$_runStep++;
 	}
 
 	public static function _init()
 	{
+		if(self::$_runStep)return;
+		self::$_runStep++;
 		if(strpos(self::$class,"\\")!==false)
 		{
 			$cl=explode("\\",self::$class);
@@ -75,9 +80,7 @@ final class db
 		mysql_select_db(self::$db["name"],self::$db["link"]) or die ("Can't use database: ".mysql_error());
 	}
 
-	public static function _sleep()
-	{
-	}
+	public static function _sleep(){}
 
 	/**
 	* Возвращает конфигурационный параметр
@@ -172,11 +175,13 @@ final class db
 	* 2 - операция ("LIKE","ISNULL","!","=","!=",">","<",">=","<=")
 	* 3 - логика ("AND","OR")
 	* Если $makeString == false -  результат возвращается в виде массива подстрок
-	* Если $makeJoin == false - первре OR/AND будет опускаться
+	* Если $firstJoin == false - первое OR/AND будет опускаться
 	*
-	* @param array $filter
+	* @param array $filters
 	* @param bool $makeString
+	* @param bool $allowString
 	* @param bool $firstJoin
+	* @param bool $t - прифекс таблицы
 	*
 	* @returns string/array $res
 	*/

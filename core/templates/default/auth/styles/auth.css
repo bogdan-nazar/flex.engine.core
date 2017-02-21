@@ -72,11 +72,6 @@
 .auth .login-box .inner .btns span.btn-link:hover {
 	text-decoration:none;
 }
-.auth .login-box .inner .btns .waiter {
-	width:16px;
-	height:16px;
-	background:url('/core/classes/class.core/templates/default/images/ajax-loader.gif');
-}
 .auth .login-box .inner .fields .regnote {
 	padding-bottom:10px;
 	color:#666;

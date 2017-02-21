@@ -17,8 +17,10 @@ final class template
 
 	private function _sectionGet($sect)
 	{
-		//if($this->fromSources)$modDir=FLEX_APP_DIR_INC;
-		//else $modDir=FLEX_APP_DIR_MOD;
+		//проверяем кэш
+		$this->sectionData=tpl::section($this->class,$sect);
+		if($this->sectionData!==false)return;
+		//если секции нет в кэше, то получаем ее из общего шаблона
 		$pattern="/<!--\/\*fet:%".$sect."%\*\/-->(.*)<!--\/\*\/fet:%".$sect."%\*\/-->/ms";
 		preg_match($pattern,$this->fileData,$m);
 		if(is_array($m) && count($m))$this->sectionData=$m[1];
@@ -68,7 +70,7 @@ final class template
 	{
 		$this->c=_a::core();
 		$this->class=$className;
-		$this->name=$useTemplatesSet?$useTemplatesSet:$this->c->config("","template");
+		$this->name=$useTemplatesSet?$useTemplatesSet:render::template();
 		if(!$tplSection)$tplSection=$className;
 		$this->section=$tplSection;
 		if(!$className)
@@ -77,43 +79,51 @@ final class template
 			return;
 		}
 		$this->fileName=$tplFile?$tplFile:$className;
-		$dir=FLEX_APP_DIR_TPL."/".$this->name."/".$className;
-		if(@file_exists($dir))$this->fileDir=$dir;
-		else
+		//проверяем кэш
+		$this->fileData=tpl::data($className,$this->fileName);
+		//если в кэше нет файла, то пытаемся загрузить
+		if($this->fileData===false)
 		{
-			if(@file_exists(FLEX_APP_DIR."/".$dir))$this->fileDir=$dir;
+			$dir=FLEX_APP_DIR_TPL."/".$this->name."/".$className;
+			if(@file_exists($dir))$this->fileDir=$dir;
 			else
 			{
-				if(FLEX_APP_DIR_SRC)//режим разработки
+				if(@file_exists(FLEX_APP_DIR."/".$dir))$this->fileDir=$dir;
+				else
 				{
-					$this->fromSources=true;
-					if(@file_exists(FLEX_APP_DIR_SRC.".core/".FLEX_APP_DIR."/".$dir))$this->fileDir=FLEX_APP_DIR_SRC.".core/".FLEX_APP_DIR."/".$dir;
-					else
+					if(FLEX_APP_DIR_SRC)//режим разработки
 					{
-						if(@file_exists(FLEX_APP_DIR_SRC.".classes/.".$className."/".$dir))$this->fileDir=FLEX_APP_DIR_SRC.".classes/.".$className."/".$dir;
+						$this->fromSources=true;
+						if(@file_exists(FLEX_APP_DIR_SRC.".core/".FLEX_APP_DIR."/".$dir))$this->fileDir=FLEX_APP_DIR_SRC.".core/".FLEX_APP_DIR."/".$dir;
+						else
+						{
+							if(@file_exists(FLEX_APP_DIR_SRC.".classes/.".$className."/".$dir))$this->fileDir=FLEX_APP_DIR_SRC.".classes/.".$className."/".$dir;
+						}
 					}
 				}
 			}
-		}
-		if($this->fileDir==="")
-		{
-			$this->error=true;
-			return;
-		}
-		else
-		{
-			$this->fileData=@file_get_contents($this->fileDir."/".$this->fileName.".tpl");
-			if($this->fileData===false)
+			if($this->fileDir==="")
 			{
 				$this->error=true;
 				return;
 			}
+			else
+			{
+				$this->fileData=@file_get_contents($this->fileDir."/".$this->fileName.".tpl");
+				if($this->fileData===false)
+				{
+					$this->error=true;
+					return;
+				}
+			}
 		}
+		//получаем нашу секцию шаблона
 		$this->_sectionGet($tplSection);
 	}
 
-	public function _render()
+	public function _render($ret=false)
 	{
+		$this->fileData="";
 		if($this->error)
 		{
 			echo"Template parse error [".$this->class."::".$this->name."]";
@@ -121,7 +131,22 @@ final class template
 		}
 		$pattern="/<!--\/\*(.*)\*\/-->/Ums";
 		$this->sectionData=preg_replace($pattern,"",$this->sectionData);
-		echo $this->sectionData;
+		if($ret)
+		{
+			$sd=$this->sectionData;
+			$this->sectionData="";
+			return $sd;
+		}
+		else
+		{
+			echo $this->sectionData;
+			$this->sectionData="";
+		}
+	}
+
+	public function fileData()
+	{
+		return $this->fileData;
 	}
 
 	public function get()
@@ -137,6 +162,16 @@ final class template
 		return $this->error;
 	}
 
+	public function sectionData()
+	{
+		return $this->sectionData;
+	}
+
+	public function setCont($var,$val)
+	{
+		$pattern="/<!--\/\*fet:cont:%".$var."%\*\/-->(.*)<!--\/\*\/fet:cont:%".$var."%\*\/-->/ms";
+		$this->sectionData=preg_replace($pattern,$val,$this->sectionData);
+	}
 	public function setVar($var,$val)
 	{
 		$pattern="<!--/*fet:var:%".$var."%*/-->";
@@ -149,14 +184,17 @@ final class template
 		foreach($data as $var=>$val)
 		{
 			if(is_int($var))continue;
-			$val="".$val;
-			if(!$val)continue;
-			$pattern="<!--/*fet:var:%".$var."%*/-->";
-			$this->sectionData=str_replace($pattern,$val,$this->sectionData);
+			if(is_array($val))self::setArrayCycle($var,$val);
+			else
+			{
+				$val="".$val;
+				$pattern="<!--/*fet:var:%".$var."%*/-->";
+				$this->sectionData=str_replace($pattern,$val,$this->sectionData);
+			}
 		}
 	}
 
-	public function setArrayCycle($name,$vals,$partData="")
+	public function setArrayCycle($name,$vals,$conts=array(),$partData="")
 	{
 		$pattern="/<!--\/\*fetc:%".$name."%\*\/-->(.*)<!--\/\*\/fetc:%".$name."%\*\/-->/ms";
 		if(!$partData)
@@ -170,18 +208,65 @@ final class template
 			else return $partData;
 		}
 		$res="";
-		foreach($vals as $vars)
+		//делаем обход рутового массива только по целым ключам,
+		//ассоциаивные ключи пропускаем
+		$keys=array_keys($vals);
+		$len=count($keys);
+		if(!$len)return $res;
+		for($cnt=0;$cnt<$len;$cnt++)
 		{
-			if(!is_array($vars))continue;
+			//ключ должен быть целым числом (не ассоциативный)
+			$key=$keys[$cnt];
+			if(!is_int($key))continue;
+			//получаем массив переменных
+			$vars=$vals[$key];
+			//пытаемся получить массив контейнеров
+			if(isset($conts[$key]) && is_array($conts[$key]))$cont=$conts[$cnt];
+			else $cont=false;
+			//обход массива переменных делаем наоборот -
+			//только по ассоциаивным ключам
 			$item=$data;
-			foreach($vars as $var=>$val)
+			if(is_array($vars))
 			{
-				if(is_array($val))
-					$item=self::setArrayCycle($var,$val,$item);
-				else
+				$keys1=array_keys($vars);
+				$len1=count($keys1);
+			}else $len1=0;
+			if($len1)
+			{
+				for($cnt1=0;$cnt1<$len1;$cnt1++)
 				{
-					$pat="<!--/*fet:var:%".$var."%*/-->";
-					$item=str_replace($pat,$val,$item);
+					$key1=$keys1[$cnt1];
+					if(!is_string($key1))continue;
+					$var=$key1;
+					$val=$vars[$var];
+					if(is_array($val))
+					{
+						$item=self::setArrayCycle($var,$val,array(),$item);
+					}
+					else
+					{
+						$pat="<!--/*fet:var:%".$var."%*/-->";
+						$item=str_replace($pat,$val,$item);
+					}
+				}
+			}
+			//обходим контейнеры, также - только
+			//по ассоциативным ключам
+			if(is_array($cont))
+			{
+				$keys1=array_keys($cont);
+				$len1=count($keys1);
+			}else $len1=0;
+			if($len1)
+			{
+				for($cnt1=0;$cnt1<$len1;$cnt1++)
+				{
+					$key1=$keys1[$cnt1];
+					if(!is_string($key1))continue;
+					$var=$key1;
+					$val=$cont[$var];
+					$pat="/<!--\/\*fet:cont:%".$var."%\*\/-->(.*)<!--\/\*\/fet:cont:%".$var."%\*\/-->/ms";
+					$item=preg_replace($pat,$val,$item);
 				}
 			}
 			$res.=$item;
@@ -200,7 +285,28 @@ final class template
 
 final class tpl
 {
-	private static $items		=	array();
+	private static $_runStep	= 0;
+	private static $sections	=	array();
+	private static $templates	=	array();
+
+	public static function _exec()
+	{
+		if(self::$_runStep!=1)return;
+		self::$_runStep++;
+	}
+
+	public static function _init()
+	{
+		if(self::$_runStep)return;
+		self::$_runStep++;
+	}
+	public static function _sleep(){}
+
+	public static function data($className,$template)
+	{
+		if(isset(self::$templates[$className]))return self::$templates[$className];
+		else return false;
+	}
 
 	/**
 	* Возвращает объект для управления определенной секцией темплейта
@@ -214,11 +320,20 @@ final class tpl
 	*/
 	public static function get($className,$tplSection="",$tplFile="",$useTemplatesSet="")
 	{
-		if(!isset(self::$items[$className]))self::$items[$className]=array();
 		$t=new template($className,$tplSection,$tplFile,$useTemplatesSet);
 		if($t->error())return $t;
-		self::$items[$className][$tplSection]=$t;
+		//сохраняем общий шаблон
+		if(!isset(self::$templates[$className]))self::$templates[$className]=$t->fileData();
+		//сохраняем шаблон секции
+		if(!isset(self::$sections[$className]))self::$sections[$className]=array();
+		if(!isset(self::$sections[$className][$tplSection]))self::$sections[$className][$tplSection]=$t->sectionData();
 		return $t;
+	}
+
+	public static function section($className,$section)
+	{
+		if(isset(self::$sections[$className][$section]))return self::$sections[$className][$section];
+		else return false;
 	}
 }
 ?>

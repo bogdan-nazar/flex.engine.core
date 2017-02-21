@@ -8,6 +8,7 @@ define("RENDER_TYPE_SILENT",2,false);
 define("RENDER_TYPE_STATUS",3,false);
 final class render
 {
+	private static $_runStep	=	0;
 	private static $c			=	NULL;
 	private static $class		=	__CLASS__;
 	private static $clMetas		=	array();
@@ -27,15 +28,15 @@ final class render
 		$cid=content::item("id");
 		if(content::item("nolayout"))
 		{
-			$spots=self::$config["spotsNolayout"];
-			if(!@in_array(self::$config["contentSpot"],$spots))$spots[]=self::$config["contentSpot"];
+			$spots=self::_config("spotsNolayout");
+			if(!@in_array(self::_config("contentSpot"),$spots))$spots[]=self::_config("contentSpot");
 			$spots=implode(",",$spots);
 		}
 		else $spots=implode(",",self::$spotsCur);
 		if($cid)$where=" || `ba`.`cid`!=$cid";
 		else $where="";
 		//ищем модули по правилу "загружать на всех страницах кроме..."
-		$q="SELECT `m`.`id`,`m`.`class`,`m`.`core`,`m`.`title`,`b`.`sid` AS `spot`,
+		$q="SELECT `m`.`id`,`m`.`class`,`m`.`core`,`m`.`srv`,`m`.`title`,`b`.`sid` AS `spot`,
 		(`b`.`ord`-1) AS `ord`,`b`.`method`,`b`.`args`, `ba`.`cid`
 		FROM ".db::tn("mods")." `m`
 		INNER JOIN ".db::tnm(self::$class."_binds")." `b` ON `b`.`mid`=`m`.`id`
@@ -50,6 +51,7 @@ final class render
 			self::$mods[$spot][$ord]=array();
 			self::$mods[$spot][$ord]["id"]=0+$row["id"];
 			self::$mods[$spot][$ord]["core"]=0+$row["core"];
+			self::$mods[$spot][$ord]["srv"]=0+$row["srv"];
 			self::$mods[$spot][$ord]["class"]=$row["class"];
 			self::$mods[$spot][$ord]["title"]=$row["title"];
 			self::$mods[$spot][$ord]["method"]=$row["method"];
@@ -57,7 +59,7 @@ final class render
 		}
 		if($cid)
 		{
-			$q="SELECT `m`.`id`,`m`.`class`,`m`.`core`,`m`.`title`,`b`.`sid` AS `spot`,
+			$q="SELECT `m`.`id`,`m`.`class`,`m`.`core`,`m`.`srv`,`m`.`title`,`b`.`sid` AS `spot`,
 			(`b`.`ord`-1) AS `ord`,`b`.`method`,`b`.`args`, `ba`.`cid`
 			FROM ".db::tn("mods")." `m`
 			INNER JOIN ".db::tnm(self::$class."_binds")." `b` ON `b`.`mid`=`m`.`id`
@@ -74,6 +76,7 @@ final class render
 					self::$mods[$spot][$ord]=array();
 					self::$mods[$spot][$ord]["id"]=0+$row["id"];
 					self::$mods[$spot][$ord]["core"]=0+$row["core"];
+					self::$mods[$spot][$ord]["srv"]=0+$row["srv"];
 					self::$mods[$spot][$ord]["class"]=$row["class"];
 					self::$mods[$spot][$ord]["title"]=$row["title"];
 					self::$mods[$spot][$ord]["method"]=$row["method"];
@@ -85,7 +88,6 @@ final class render
 
 	private static function _buildStyleSheet($styles)
 	{
-
 		if(!is_array($styles) || !count($styles))return $empty;
 		$cssData="";
 		foreach($styles as $item=>$pars)
@@ -103,14 +105,15 @@ final class render
 			if($fcont!==false)
 			{
 				if($ext)
-			    {
-		    		$d=preg_replace("/http:\/\/(.*)/","$1",$file);
-		    		$d=explode("/",$d,2);
-		    		$d=$d[0];
-		    		$fcont=str_replace("url('/","url('http://{$d}/",$fcont);
-		    		$cssData.=str_replace("url(/","url(http://{$d}/",$fcont);
-			    }
-			    else $cssData.=str_replace("{\$modTplDir}",$tplDir,$fcont);
+				{
+					$d=preg_replace("/http:\/\/(.*)/","$1",$file);
+					$d=explode("/",$d,2);
+					$d=$d[0];
+					$fcont=str_replace("url('/","url('http://{$d}/",$fcont);
+					$fcont=str_replace("url(/","url(http://{$d}/",$fcont);
+				}
+				else $fcont=str_replace("{\$modTplDir}",$tplDir,$fcont);
+				$cssData.=str_replace("{\$modDataDir}",FLEX_APP_DIR_ROOT.FLEX_APP_DIR_DAT."/_".$class."/",$fcont);
 			}
 			else
 			{
@@ -124,25 +127,69 @@ final class render
 
 	private static function _client()
 	{
-		$dir=FLEX_APP_DIR."/client/".self::$class."/";
-		$file=$dir.self::$config["jquery"];
-		$found=@file_exists($file);
-		if(FLEX_APP_DIR_SRC && !$found)
-			$file=FLEX_APP_DIR_ROOT."?feh-rsc-get=js&path=/".$file;
-		else
-			$file=FLEX_APP_DIR_ROOT.$file;
+		//выводим скрипты ядра и расширений
+		if(!count(self::$clScripts))return;
+		foreach(self::$clScripts as $class=>$scripts)
+		{
+			$len=count($scripts);
+			for($cnt=0;$cnt<$len;$cnt++)
+			{
+				$script=&$scripts[$cnt];
+				if(!isset($script["core"]) || !$script["core"])continue;
+				if(!isset($script["tpl"]) && (strpos($script["name"],"http")===0))$file=$script["name"];
+				else
+				{
+					$modFl="client/".$class.$script["admin"]."/".$script["name"].".js";
+					$file=FLEX_APP_DIR."/".$modFl;
+					$found=@file_exists($file);
+					if(FLEX_APP_DIR_SRC && !$found)
+						$file=FLEX_APP_DIR_ROOT."?feh-rsc-get=js&path=/".$file;
+					else
+						$file=FLEX_APP_DIR_ROOT.$file;
+				}
 ?>
-	<script type="text/javascript" src="<?=$file?>"></script>
+	<script type="text/javascript" src="<?=$file?>" charset="utf-8"></script>
 <?
-		$file=$dir.self::$class.".js";
-		$found=@file_exists($file);
-		if(FLEX_APP_DIR_SRC && !$found)
-			$file=FLEX_APP_DIR_ROOT."?feh-rsc-get=js&path=/".$file;
-		else
-			$file=FLEX_APP_DIR_ROOT.$file;
+			}
+		}
+		//выводим скрипт построения клиента
 ?>
-	<script type="text/javascript" src="<?=$file?>"></script>
+	<script type="text/javascript">
+		//поскольку лучшего варианта защитить
+		//глобальный указатель на клиент не нашлось, делаем так:
+		(function() {
+			"use strict";
+			var client = window.FlexClient;
+			delete window.FlexClient;
+			Object.defineProperty(window, "FlexClient", {
+				configurable: false,
+				enumerable: false,
+  				value: new client({
+					cfg: {
+						<?=("_exts: ".self::$c->clientConfig("core").",\r\n")?>
+						<?=("_mods: ".self::$c->clientConfig("mods").",\r\n")?>
+						<?=("appName: \"".self::$c->config("","siteName")."\",\r\n")?>
+						<?=("initPoint: \""."core-client-init"."\",\r\n")/*!!!вынести в конфиг*/?>
+						dirs: {
+							root: (""<?=(" + \"".FLEX_APP_DIR_ROOT."\"")?>),
+						},
+						<?=("lang: \"".self::$c->lang()."\"")?>
+					}
+				}),
+				writable: false
+			});
+			//загружаем системные расширения
+			var api = FlexClient.extensionsLoad();
+			Object.defineProperty(FlexClient, "module", {
+				configurable: false,
+				enumerable: false,
+  				value: api[0],
+				writable: false
+			});
+		})();
+	</script>
 <?
+		//выводим скрипты модулей
 		$len=count(self::$clScripts);
 		if(!$len)return;
 		foreach(self::$clScripts as $class=>$scripts)
@@ -150,6 +197,8 @@ final class render
 			$len=count($scripts);
 			for($cnt=0;$cnt<$len;$cnt++)
 			{
+				$script=&$scripts[$cnt];
+				if(isset($script["core"]) && $script["core"])continue;
 				if(!isset($scripts[$cnt]["tpl"]) && (strpos($scripts[$cnt]["name"],"http")===0))$file=$scripts[$cnt]["name"];
 				else
 				{
@@ -168,88 +217,107 @@ final class render
 		}
 	}
 
-	private static function _clientStyles()
+	private static function _clientStyleAdd($class,$name="",$core=false,$admin=false,$ret=false)
 	{
-		$styles=array();
-		$dir=FLEX_APP_DIR_TPL."/".self::$config["template"]."/".self::$class;
-		$file=FLEX_APP_DIR."/".$dir."/styles/".self::$class.".css";
-		$found=@file_exists($file);
-		if(FLEX_APP_DIR_SRC && !$found)
+		if(!is_string($class))
 		{
-			$file=FLEX_APP_DIR_SRC.".core/".$file;
-			$tplDir=FLEX_APP_DIR_ROOT."?feh-rsc-get=auto&path=/".FLEX_APP_DIR."/".$dir."/";
-			$found=@file_exists($file);
+			if(!is_object($class))return false;
+			$cl=@explode("\\",@get_class($class));
+			$clname=@array_pop($cl);
+		}
+		if(!$name)$name=$class;
+		$style=array();
+		$style["http"]=(@strpos($name,"http")===0);
+		$style["class"]=$class;
+		$style["name"]=$name;
+		if($name && (@strpos($name,"/")!==false))
+		{
+			$style["admin"]="";
+			$style["core"]=false;
+			$style["tpl"]="";
+			$style["link"]=true;
 		}
 		else
 		{
-			$tplDir=FLEX_APP_DIR_ROOT.FLEX_APP_DIR."/".$dir."/";
+			if(@method_exists(__NAMESPACE__."\\".$class,self::$c->modHookName("template")))
+				$tpl=@call_user_func_array(array(__NAMESPACE__."\\".$class,self::$c->modHookName("template")),array($class));
+			else $tpl=self::_config("template");
+			$style["admin"]=(@defined("ADMIN_MODE") && $admin)?"/admin":"";
+			$style["core"]=$core;
+			$style["tpl"]=$tpl;
+			$style["link"]=false;
 		}
-		$styles[]=array("class"=>self::$class,"ext"=>false,"file"=>$file,"found"=>$found,"name"=>self::$class,"tplDir"=>$tplDir);//ext - external script
+		if($ret)return $style;
+		else
+		{
+			self::$clStyles[]=$style;
+			return true;
+		}
+	}
+
+	private static function _clientStyles()
+	{
+		//добавляем свои стили, основной (render.css) - вначало, ender.css - вконец
+		array_unshift(self::$clStyles,self::_clientStyleAdd(self::$class,self::$class,true,false,true));
+		self::_clientStyleAdd(self::$class,"ender",true);
+		$styles=array();
 		$len=count(self::$clStyles);
 		for($cnt=0;$cnt<$len;$cnt++)
 		{
-			$item=array();
+			//пропускаем внешний стиль
 			if(self::$clStyles[$cnt]["http"])continue;
-			$item["class"]=self::$clStyles[$cnt]["class"];
-			if(self::$clStyles[$cnt]["link"])
+			$item=array();
+			//обрабатываем...
+			$style=&self::$clStyles[$cnt];
+			$item["class"]=$style["class"];
+			if($style["link"])
 			{
-				$path=explode("/",self::$clStyles[$cnt]["name"]);
+				$path=explode("/",$style["name"]);
 				if(count($path))$name=array_pop($path);
-				else $name=self::$clStyles[$cnt]["name"];
+				else $name=$style["name"];
 				$item["ext"]=false;
-				$item["file"]=self::$clStyles[$cnt]["name"];
+				$item["file"]=$style["name"];
 				$item["found"]=@file_exists($item["file"]);
 				$item["name"]=$name;
 				$item["tplDir"]=FLEX_APP_DIR_ROOT.implode("/",$path)."/";
 			}
 			else
 			{
-				$tpl=(isset(self::$clStyles[$cnt]["tpl"])?self::$clStyles[$cnt]["tpl"]:self::$c->template());
-				$core=(isset(self::$clStyles[$cnt]["core"]) && self::$clStyles[$cnt]["core"]);
-				$corePath=$core?(FLEX_APP_DIR."/"):"";
-				$dir=FLEX_APP_DIR_TPL."/".$tpl."/".self::$clStyles[$cnt]["class"].self::$clStyles[$cnt]["admin"];
-				$file=$dir."/styles/".self::$clStyles[$cnt]["name"].".css";
-				$found=@file_exists($corePath.$file);
+				$tpl=(isset($style["tpl"])?$style["tpl"]:self::_config("template"));
+				$core=(isset($style["core"]) && $style["core"]);
+				$modRoot=$core?(FLEX_APP_DIR."/"):"";
+				$modTpl=FLEX_APP_DIR_TPL."/".($core?"default/":$tpl)."/";//для ядра всегда используется шаблон default
+				$modPath=$style["class"].$style["admin"]."/styles/";
+				$file=$modRoot.$modTpl.$modPath.$style["name"].".css";
+				$found=@file_exists($file);
 				if(FLEX_APP_DIR_SRC && !$found)
 				{
-					$file=FLEX_APP_DIR_SRC.($core?(".core/".FLEX_APP_DIR):(".classes/.".self::$clStyles[$cnt]["class"]))."/".$file;
-					$tplDir=FLEX_APP_DIR_ROOT."?feh-rsc-get=auto&path=/".$corePath.$dir."/";
+					$modRoot=FLEX_APP_DIR_SRC.($core?(".core/".FLEX_APP_DIR):(".classes/.".$style["class"]))."/";
+					$modTpl=FLEX_APP_DIR_TPL."/default/";
+					$file=$modRoot.$modTpl.$modPath.$style["name"].".css";
 					$found=@file_exists($file);
+					$tplDir=FLEX_APP_DIR_ROOT."?feh-rsc-get=auto&path=/".($core?(FLEX_APP_DIR."/"):"").$modTpl.str_replace("styles/","",$modPath);
 				}
 				else
 				{
-					$tplDir=FLEX_APP_DIR_ROOT.$corePath.$dir."/";
+					$tplDir=FLEX_APP_DIR_ROOT.($core?(FLEX_APP_DIR."/"):"").$modTpl.str_replace("styles/","",$modPath);
 				}
 				$item["ext"]=false;
 				$item["file"]=$file;
 				$item["found"]=$found;
-				$item["name"]=self::$clStyles[$cnt]["name"];
+				$item["name"]=$style["name"];
 				$item["tplDir"]=$tplDir;
 			}
 			$styles[]=$item;
 		}
-		$dir=FLEX_APP_DIR_TPL."/".self::$config["template"]."/".self::$class;
-		$file=FLEX_APP_DIR."/".$dir."/styles/ender.css";
-		$found=@file_exists($file);
-		if(FLEX_APP_DIR_SRC && !$found)
-		{
-			$file=FLEX_APP_DIR_SRC.".core/".$file;
-			$tplDir=FLEX_APP_DIR_ROOT."?feh-rsc-get=auto&path=/".FLEX_APP_DIR."/".$dir."/";
-			$found=@file_exists($file);
-		}
-		else
-		{
-			$tplDir=FLEX_APP_DIR_ROOT.FLEX_APP_DIR."/".$dir."/";
-		}
-		$styles[]=array("class"=>self::$class,"ext"=>false,"file"=>$file,"found"=>$found,"name"=>"ender","tplDir"=>$tplDir);//ext - external script
 		//сохраняем список для css.php
 		$md=md5(serialize($styles));
-		$url=cache::check(self::$class,$md,self::$config["cacheEvalCss"],"css");
+		$url=cache::check(self::$class,$md,self::_config("cacheEvalCss"),"css");
 		if(!$url)
 		{
 			$cont=self::_buildStyleSheet($styles);
 			if(!$cont)die("CSS render error.");
-			$url=cache::set(self::$class,$md,self::$config["cacheEvalCss"],$cont,false,"css");
+			$url=cache::set(self::$class,$md,self::_config("cacheEvalCss"),$cont,false,"css");
 			if(!$url)die("CSS render error.");
 		}
 ?>
@@ -264,6 +332,13 @@ final class render
 <?
 			}
 		}
+	}
+
+	private static function _config($name,$params=false)
+	{
+		//var @params is set for future purposes
+		if(isset(self::$config[$name]))return self::$config[$name];
+		else return "";
 	}
 
 	private static function _configLoad()
@@ -286,7 +361,8 @@ final class render
 			"elColFRWidth"		=>	"220px",
 			"jquery"			=>	"jquery-1.10.2.min.js",
 			"spotsDefault"		=>	array(1,2,3,4,5,6,10,11,13,16,21,22),
-			"spotsNolayout"		=>	array(1,4,22)
+			"spotsNolayout"		=>	array(1,4,22),
+			"template"			=>	"default"
 		);
 		$cfg=self::$c->config(self::$class,false,true);
 		foreach($cfg as $name=>$vals)
@@ -329,7 +405,6 @@ final class render
 
 	private static function _html1Header()
 	{
-		$ent="".lib::rnd(1000000000, 2147483647);
 ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
@@ -343,21 +418,8 @@ final class render
 		self::_metas();
 		if(file_exists("favicon.ico")):?>
 	<link rel="shortcut icon" type="image/ico" href="/favicon.ico" /><?endif;
-		self::_clientStyles();?>
-	<script type="text/javascript">
-		var flex_engine_render_pointer<?=$ent?> = {cfg: {
-			appName: (""<?=(" + \"".self::$c->config("","siteName")."\"")?>),
-			appRoot: (""<?=(" + \"".FLEX_APP_DIR_ROOT."\"")?>),
-			elNameAction: (""<?=(" + \"".self::$c->config("","elNameAction")."\"")?>),
-			elNameForm: (""<?=(" + \"".self::$c->config("","elNameForm")."\"")?>),
-			entity: (""<?=(" + \"".$ent."\"")?>),
-			lang: (""<?=(" + \"".self::$c->lang()."\"")?>),
-			pageAlias: (""<?=(" + \"".content::item("alias")."\"")?>),
-			pageTemplate: (""<?=(" + \"".self::$c->template()."\"")?>),
-			pageTitle: (""<?=(" + \"".content::title(false,false)."\"")?>),
-			plugins: []
-		}};
-	</script><?self::_client();?>
+		self::_clientStyles();
+		self::_client();?>
 </head>
 <body leftmargin="0" topmargin="0" rightmargin="0" bottommargin="0" marginwidth="0"><?
 		self::_spot(4,true,false,false,true);
@@ -384,10 +446,10 @@ final class render
 		self::_html1Header();
 		$nameForm=self::$class."-".self::$c->config("","elNameForm");
 		$nameAction=self::$class."-".self::$c->config("","elNameAction");
-		$ms=self::config("elMainStyle");
-		$hs=self::config("elHeaderStyle");
-		$colLW=self::config("elColHLWidth");
-		$colRW=self::config("elColHRWidth");
+		$ms=self::_config("elMainStyle");
+		$hs=self::_config("elHeaderStyle");
+		$colLW=self::_config("elColHLWidth");
+		$colRW=self::_config("elColHRWidth");
 		$clear=false;
 		if(!$hs7=self::_hasSpot(7))$colLW="0";
 		else $clear="left";
@@ -396,7 +458,7 @@ final class render
 ?>
 <form id="<?=$nameForm?>" action="" method="post" enctype="multipart/form-data" onsubmit="<?=(self::$class.".")?>onSubmit()">
 	<input type="hidden" id="<?=$nameAction?>" name="<?=$nameAction?>" value="" />
-	<script type="text/javascript"><?=(self::$class.".")?>_init();</script>
+	<div id="core-client-init"><!-- (!!!) прописать id в конфиг --></div>
 	<?self::_spot(5,false);?>
 	<div id="<?=self::$class?>-main" class="<?=self::$class?>" style="<?=$ms?>">
 		<div id="<?=self::$class?>-header" style="<?=$hs?>"><?
@@ -412,11 +474,11 @@ final class render
 
 	private static function _page2Center()
 	{
-		$cs=self::config("elCenterStyle");
+		$cs=self::_config("elCenterStyle");
 		if(!self::_hasSpotMods(array(16,17,18,19,20)))$fh="0";
-		else $fh=self::config("elFooterHeight");
-		$colLW=self::config("elColCLWidth");
-		$colRW=self::config("elColCRWidth");
+		else $fh=self::_config("elFooterHeight");
+		$colLW=self::_config("elColCLWidth");
+		$colRW=self::_config("elColCRWidth");
 		$clear=false;
 		if(!$hs12=self::_hasSpot(12))$colLW="0";
 		else $clear="left";
@@ -425,9 +487,9 @@ final class render
 ?>
 		<div id="<?=self::$class?>-center" style="<?=$cs?>"><?
 		self::_spot(11,true,"center-top",false,true);
-		self::_spot(12,true,"center-left",array("width"=>$colLW),true);
-		self::_spot(14,true,"center-right",array("width"=>$colRW),true);
-		self::_spot(13,true,"center-mid",array("margin"=>"0 {$colRW} 0 {$colLW}"),true);
+		self::_spot(12,true,"center-left",array("width"=>$colLW),false);
+		self::_spot(14,true,"center-right",array("width"=>$colRW),false);
+		self::_spot(13,true,"center-mid",array("margin"=>"0 {$colRW} 0 {$colLW}"),false);
 		echo($clear?"<div class=\"".self::$class."-clear-".$clear."\"></div>":"");
 		self::_spot(15,true,"center-bottom",false,true);?>
 			<div id="<?=self::$class?>-footer-margin" style="<?=("height:".$fh.";")?>"></div>
@@ -438,12 +500,12 @@ final class render
 
 	private static function _page3Footer()
 	{
-		$fs=self::config("elFooterStyle");
+		$fs=self::_config("elFooterStyle");
 		if(!self::_hasSpotMods(array(16,17,18,19,20)))$fh="0";
-		else $fh=self::config("elFooterHeight");
-		$fd=self::config("elFooterDynamic");
-		$colLW=self::config("elColFLWidth");
-		$colRW=self::config("elColFRWidth");
+		else $fh=self::_config("elFooterHeight");
+		$fd=self::_config("elFooterDynamic");
+		$colLW=self::_config("elColFLWidth");
+		$colRW=self::_config("elColFRWidth");
 		$clear=false;
 		if(!$hs17=self::_hasSpot(17))$colLW="0";
 		else $clear="left";
@@ -465,87 +527,94 @@ final class render
 		self::_html2Footer();
 	}
 
+	/**
+	* Чтение данных из сессии
+	*/
 	private static function _sessionRead()
 	{
-		if(isset($_SESSION[self::$class."-data"]))
-			self::$session=unserialize($_SESSION[self::$class."-data"]);
+		//распаковываем сессию
+		$sesName=FLEX_APP_NAME."-".self::$class."-data";
+		if(isset($_SESSION[$sesName]))self::$session=unserialize($_SESSION[$sesName]);
+		//убеждаемся, что сессия была корректно сохранена
+		if(!is_array(self::$session))self::$session=array();
 	}
 
 	/**
-	* Чтение данных из сессии
-	*
+	* Запись данных в сессию
 	*/
 	private static function _sessionWrite()
 	{
-		if(count(self::$session))
-			$_SESSION[self::$class."-data"]=serialize(self::$session);
+		//убеждаемся, что сессия не была повреждена во время выполнения
+		if(!is_array(self::$session))self::$session=array();
+		//пакуем сессию
+		$_SESSION[FLEX_APP_NAME."-".self::$class."-data"]=serialize(self::$session);
 	}
 
-	private static function _spot($sid,$tag=false,$class=false,$styles=false,$ignoreEmpty=false)
+	/**
+	* Функция создает и заполняет спот, вызывая методы
+	* рендеринга у модулей, привязанных к этому споту
+	*
+	* @param integer $sid - номер спота
+	* @param mixed $htmlTag - формирующий тег, string или boolen
+	* @param mixed $cssClass - дополнительный css-класс, string или boolen
+	* @param mixed $styles - дополнительные стили, string или boolen
+	* @param boolean $ignoreEmpty - игнорировать пустой спот
+	*/
+	private static function _spot($sid,$htmlTag=false,$cssClass=false,$styles=false,$ignoreEmpty=false)
 	{
-		if($tag && (!is_string($tag)))$tag="div";
+		if($htmlTag && (!is_string($htmlTag)))$htmlTag="div";
 		$mods=self::modsInSpot($sid);
 		$empty=(count($mods)===0);
 		$methodDef=self::$c->modHookName("render");
-		$methodDefDeep=self::$c->modHookName("renderDeep");
-		if($sid==self::$config["contentSpot"])
+		$contSpot=self::_config("contentSpot");
+		if($sid==$contSpot)$ignoreEmpty=false;//верстка контент-spot'а не может быть пропущена
+		if($htmlTag && (!$empty || !$ignoreEmpty))
+		{
+			if(is_array($styles))$styles=self::_spotStyles($sid,$styles);
+			else $styles=self::_spotStyles($sid);
+?>
+	<<?=$htmlTag?> id="<?=self::$class?>-spot-<?=$sid?>" <?=(is_string($cssClass)?" class=\"{$cssClass}\"":"")?><?=($styles?$styles:"")?>>
+<?
+		}
+		//выводим контент, если данный спот является контентным
+		if($sid==$contSpot)
 		{
 			content::title(true,true);
 			self::_spot(2,true,false,false,true);
-			@call_user_func(array(__NAMESPACE__."\\"."content",$methodDef));
+			content::_render($sid);
 		}
-		else
-		{
-			if($tag && (!$empty || !$ignoreEmpty))
-			{
-				if(is_array($styles))$styles=self::_spotStyles($sid,$styles);
-				else $styles=self::_spotStyles($sid);
-?>
-		<<?=$tag?> id="<?=self::$class?>-spot-<?=$sid?>" <?=(is_string($class)?" class=\"{$class}\"":"")?><?=($styles?$styles:"")?>>
-<?
-			}
-		}
+		//перебираем все модул в споте и вызываем метод рендеринга
 		foreach($mods as $mod)
 		{
-			$args="";
-			$method="";
-			if($mod["args"]!=="")$args=explode(",",$mod["args"]);
-			if(@class_exists(__NAMESPACE__."\\".$mod["class"]))
+			$class=__NAMESPACE__."\\".$mod["class"];
+			$args=explode(",",$mod["args"]);
+			if(!$args[0])$args=array();
+			//дополнительные переменные $instance, $sid & $method
+			//для пользовательских модулей
+			if(!$mod["core"])array_unshift($args,$class,$sid,$mod["method"]);
+			//проверяем метод "по умолчанию"
+			//(этот метод сам вызовет пользовательский метод)
+			$method=($mod["core"]?"_render":$methodDef);
+			if(!@method_exists($class,$method))
 			{
-				if(@method_exists(__NAMESPACE__."\\".$mod["class"],$methodDefDeep))
-				{
-					$method=$methodDefDeep;
-					if(!is_array($args))$args=array($mod["class"],$mod["method"]);
-					else
-					{
-						array_unshift($args,$mod["method"]);
-						array_unshift($args,$mod["class"]);
-					}
-				}
-				else
-				{
-					$method=$mod["method"];
-					if(!$method)$method=$methodDef;
-					if(!@method_exists(__NAMESPACE__."\\".$mod["class"],$method))$method="";
-				}
+				//если метод "по умолчанию" не обнаружен,
+				//то проверяем пользовательский метод
+				$method=$mod["method"];
+				if(!$method || !@method_exists($class,$method))$method="";
 			}
+			//если метод найден, то выполняем
 			if($method)
 			{
-				if(is_array($args))
-					@call_user_func_array(array(__NAMESPACE__."\\".$mod["class"],$method),$args);
-				else
-					@call_user_func(array(__NAMESPACE__."\\".$mod["class"],$method));
+				if(is_array($args))@call_user_func_array(array($class,$method),$args);
+				else $class::$method($class);
 			}
 		}
-		if($sid==self::$config["contentSpot"])self::_spot(3,true,false,false,true);
-		else
+		if($sid==$contSpot)self::_spot(3,true,false,false,true);
+		if($htmlTag && (!$empty || !$ignoreEmpty))
 		{
-			if($tag && (!$empty || !$ignoreEmpty))
-			{
 ?>
-		</<?=$tag?>>
+		</<?=$htmlTag?>>
 <?
-			}
 		}
 	}
 
@@ -594,16 +663,36 @@ final class render
 
 	public static function _exec()
 	{
+		if(self::$_runStep!=1)return;
+		self::$_runStep++;
 		$spots=content::spots();
 		if(is_array($spots) && count($spots))self::$spotsCur=$spots;
-		else self::$spotsCur=self::$config["spotsDefault"];
+		else self::$spotsCur=self::_config("spotsDefault");
 		self::_bindingsLoad();
 		self::_spotStylesLoad();
-
+		//подключаем собственные ресурсы
+		if(!self::silent())
+		{
+			$data=array(
+				"elems"	=> array(
+					"Action"	=>	self::$c->config("","elNameAction"),
+					"Form" 		=>	self::$c->config("","elNameForm")
+				),
+				"page"	=>	array(
+					"alias"		=>	content::item("alias"),
+					"template"	=>	self::$c->template(),
+					"title"		=>	content::title(false,false)
+				)
+			);
+			self::$c->addConfig(self::$class,$data,true);
+			self::addScript(self::$class,self::$class,true);
+		}
 	}
 
 	public static function _init()
 	{
+		if(self::$_runStep)return;
+		self::$_runStep++;
 		if(@strpos(self::$class,"\\")!==false)
 		{
 			$cl=@explode("\\",self::$class);
@@ -634,7 +723,7 @@ final class render
 	<script type="text/javascript"><?=(self::$class.".")?>_init();</script>
 <?
 		self::_spot(5,false);
-		self::_spot(self::$config["contentSpot"]);
+		self::_spot(self::_config("contentSpot"));
 		self::_spot(21,false);
 ?>
 </form>
@@ -663,7 +752,7 @@ final class render
 		if(is_string($class))$clname=$class;
 		else
 		{
-			if(!is_object($class))return;
+			if(!is_object($class))return false;
 			$cl=@explode("\\",@get_class($class));
 			$clname=@array_pop($cl);
 		}
@@ -673,12 +762,12 @@ final class render
 			{
 				$len=@count(self::$clScripts[$clname]);
 				for($cnt=0;$cnt<$len;$cnt++)
-					if(self::$clScripts[$clname][$cnt]["name"]==$name)return;
+					if(self::$clScripts[$clname][$cnt]["name"]==$name)return true;
 				$new=$len;
 			}
 			else $new=0;
 			self::$clScripts[$clname][$new]["name"]=$name;
-			return;
+			return true;
 		}
 		if(!$name)$name=$clname;
 		$new=0;
@@ -687,52 +776,19 @@ final class render
 			$len=@count(self::$clScripts[$clname]);
 			for($cnt=0;$cnt<$len;$cnt++)
 			{
-				if(self::$clScripts[$clname][$cnt]["name"]==$name)return;
+				if(self::$clScripts[$clname][$cnt]["name"]==$name)return true;
 			}
 			$new=$len;
 		}
 		self::$clScripts[$clname][$new]["name"]=$name;
 		if($core)self::$clScripts[$clname][$new]["core"]=$core;
 		self::$clScripts[$clname][$new]["admin"]=(@defined("ADMIN_MODE") && $admin)?"/admin":"";
+		return true;
 	}
 
 	public static function addStyle($class,$name="",$core=false,$admin=false)
 	{
-		if(!is_string($class))
-		{
-			if(!is_object($class))return;
-			$cl=@explode("\\",@get_class($class));
-			$clname=@array_pop($cl);
-		}
-		if(!$name)$name=$class;
-		$len=@count(self::$clStyles);
-		self::$clStyles[$len]["http"]=(@strpos($name,"http")===0);
-		self::$clStyles[$len]["class"]=$class;
-		self::$clStyles[$len]["name"]=$name;
-		if($name && (@strpos($name,"/")!==false))
-		{
-			self::$clStyles[$len]["admin"]="";
-			self::$clStyles[$len]["core"]=false;
-			self::$clStyles[$len]["tpl"]="";
-			self::$clStyles[$len]["link"]=true;
-		}
-		else
-		{
-			if(@method_exists(__NAMESPACE__."\\".$class,self::$c->modHookName("template")))
-				$tpl=@call_user_func_array(array(__NAMESPACE__."\\".$class,self::$c->modHookName("template")),array($class));
-			else $tpl=self::$c->template();
-			self::$clStyles[$len]["admin"]=(@defined("ADMIN_MODE") && $admin)?"/admin":"";
-			self::$clStyles[$len]["core"]=$core;
-			self::$clStyles[$len]["tpl"]=$tpl;
-			self::$clStyles[$len]["link"]=false;
-		}
-	}
-
-	public static function config($name,$params=false)
-	{
-		//var @params is set for future purposes
-		if(isset(self::$config[$name]))return self::$config[$name];
-		else return "";
+		return self::_clientStyleAdd($class,$name,$core,$admin);
 	}
 
 	public static function html1Header()
@@ -804,6 +860,11 @@ final class render
 	public static function silent()
 	{
 		return (self::$type==RENDER_TYPE_SILENT);
+	}
+
+	public static function template()
+	{
+		return self::_config("template");
 	}
 
 	public static function type()

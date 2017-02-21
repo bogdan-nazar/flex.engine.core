@@ -11,11 +11,13 @@ define("CORE_MOD_TYPE_SYS",0,false);
 define("CORE_MOD_TYPE_USR",1,false);
 final class core
 {
+	private $_runStep		=	0;
 	private $actions		=	array();
 	private $appRoot		=	"/";
 	private $config			=	array();
 	private $configTime		=	0;
 	private $class			=	__CLASS__;
+	private $clConfig		=	array();
 	private $debug			=	false;
 	private $domainType		=	CORE_DOMAIN_TYPE_MAIN;
 	private $domainCurrent	=	"";
@@ -23,17 +25,13 @@ final class core
 	private $modules		=	array();
 	private $modHookNames	=	array(
 		"adminSuf"			=>	"Admin",
-		"init"				=>	"_init",
-		"initDeep"			=>	"__init",
-		"exec"				=>	"_exec",
-		"execDeep"			=>	"__exec",
-		"homeDir"			=>	"_homeDir",
-		"render"			=>	"_render",
-		"renderDeep"		=>	"__render",
+		"init"				=>	"__init",
+		"exec"				=>	"__exec",
+		"homeDir"			=>	"__homeDir",
+		"render"			=>	"__render",
 		"service"			=>	"__service",
-		"sleep"				=>	"_sleep",
-		"sleepDeep"			=>	"__sleep",
-		"template"			=>	"_template"
+		"sleep"				=>	"__sleep",
+		"template"			=>	"__template"
 	);
 	private $path			=	array();
 	private $post			=	array();
@@ -76,7 +74,6 @@ final class core
 					"elNameAction"		=>	array("params"=>"","value"=>"action"),
 					"elNameForm"		=>	array("params"=>"","value"=>"form-main"),
 					"siteName"			=>	array("params"=>"","value"=>"Web-site"),
-					"template"			=>	array("params"=>"","value"=>"default"),
 					"uriParseType"		=>	array("params"=>"CORE_URI_PARSE_FIRSTSECT","value"=>CORE_URI_PARSE_FIRSTSECT),
 				);
 				//перезаписывам значения по-умолчанию значенияи из пользовательского конфига
@@ -85,9 +82,17 @@ final class core
 				else {
 					$cincl=FLEX_APP_DIR."/config.php";
 					if(@file_exists($cincl))include $cincl;
-					else die("Critical: config file was not found.");
+					else
+					{
+						lang::_init(true);
+						die(_t(LANG_CORE_CRIT_CFG));
+					}
 				}
-				if(!isset($global_cfg) || !count($global_cfg))die("Critical: config data was not found.");
+				if(!isset($global_cfg) || !count($global_cfg))
+				{
+					lang::_init(true);
+					die(_t(LANG_CORE_CRIT_CFG_DATA));
+				}
 				foreach($global_cfg as $mod=>$cfg)
 				{
 					if(!is_array($cfg))continue;
@@ -113,7 +118,7 @@ final class core
 				if($dl && (strpos($_SERVER["HTTP_HOST"],$dl)!==false))$this->domainType=CORE_DOMAIN_TYPE_LOC;
 				elseif($dd && strpos($_SERVER["HTTP_HOST"],$dd)!==false)$this->domainType=CORE_DOMAIN_TYPE_DEV;
 				else $this->domainType=CORE_DOMAIN_TYPE_MAIN;
-				@call_user_func(array(__NAMESPACE__."\\db",$this->modHookNames["init"]));
+				db::_init();
 			}
 			$mid=0;
 		}
@@ -126,27 +131,13 @@ final class core
 		while($row=db::fetch($r))$this->config[$class][$row["name"]]=array("params"=>$row["params"],"value"=>$row["value"]);
 	}
 
-	private function __modsExec()
+	private function __modsStage($m)
 	{
 		foreach($this->modules as $i=>$mod)
 		{
 			if($mod["core"])continue;
-			if(@method_exists(__NAMESPACE__."\\".$mod["class"],$this->modHookNames["execDeep"]))
-				@call_user_func_array(array(__NAMESPACE__."\\".$mod["class"],$this->modHookNames["execDeep"]),array($mod["class"]));
-			elseif(@method_exists(__NAMESPACE__."\\".$mod["class"],$this->modHookNames["exec"]))
-				@call_user_func(array(__NAMESPACE__."\\".$mod["class"],$this->modHookNames["exec"]));
-		}
-	}
-
-	private function __modsInit()
-	{
-		foreach($this->modules as $i=>$mod)
-		{
-			if($mod["core"])continue;
-			if(@method_exists(__NAMESPACE__."\\".$mod["class"],$this->modHookNames["initDeep"]))
-				@call_user_func_array(array(__NAMESPACE__."\\".$mod["class"],$this->modHookNames["initDeep"]),array($mod["class"]));
-			elseif(@method_exists(__NAMESPACE__."\\".$mod["class"],$this->modHookNames["init"]))
-				@call_user_func(array(__NAMESPACE__."\\".$mod["class"],$this->modHookNames["init"]));
+			$c=__NAMESPACE__."\\".$mod["class"];
+			$c::$m($mod["class"],$mod["srv"]);
 		}
 	}
 
@@ -155,31 +146,24 @@ final class core
 		$this->modules=render::modsBound();
 	}
 
-	private function __modsSleep()
+	private function __modsSleep($m)
 	{
 		$l=count($this->modules);
 		for($c=($l-1);$c>=0;$c--)
 		{
 			if($this->modules[$c]["core"])continue;
-			if(@method_exists(__NAMESPACE__."\\".$this->modules[$c]["class"],$this->modHookNames["sleepDeep"]))
-				@call_user_func_array(array(__NAMESPACE__."\\".$this->modules[$c]["class"],$this->modHookNames["sleepDeep"]),array($this->modules[$c]["class"]));
-			if(@method_exists(__NAMESPACE__."\\".$this->modules[$c]["class"],$this->modHookNames["sleep"]))
-				@call_user_func(array(__NAMESPACE__."\\".$this->modules[$c]["class"],$this->modHookNames["sleep"]));
+			$cl=__NAMESPACE__."\\".$this->modules[$c]["class"];
+			$cl::$m($this->modules[$c]["class"]);
 		}
 	}
 
-	private function __sysExec()
+	private function __sysStage($m)
 	{
 		foreach($this->system as $mod)
-			if(@method_exists(__NAMESPACE__."\\".$mod["class"],$this->modHookNames["exec"]))
-				@call_user_func(array(__NAMESPACE__."\\".$mod["class"],$this->modHookNames["exec"]));
-	}
-
-	private function __sysInit()
-	{
-		foreach($this->system as $mod)
-			if(($mod["class"]!="db") && @method_exists(__NAMESPACE__."\\".$mod["class"],$this->modHookNames["init"]))
-				@call_user_func(array(__NAMESPACE__."\\".$mod["class"],$this->modHookNames["init"]));
+		{
+			$c=__NAMESPACE__."\\".$mod["class"];
+			$c::$m();
+		}
 	}
 
 	private function __sysLoad()
@@ -209,13 +193,16 @@ final class core
 		}
 	}
 
-	private function __sysService()
+	private function __sysService($mi,$ms)
 	{
 		foreach($this->service as $class=>$v)
 		{
-			if(@method_exists(__NAMESPACE__."\\".$class,$this->modHookNames["initDeep"]))
-				@call_user_func_array(array(__NAMESPACE__."\\".$class,$this->modHookNames["initDeep"]),array($class));
-			$srv=@call_user_func_array(array(__NAMESPACE__."\\".$class,$this->modHookNames["service"]),array($class,true));
+			$c=__NAMESPACE__."\\".$class;
+            //инициализируем экземпляр, НО инициализацию пока что не выполняем
+            //для этого второй аргумент (флаг srv) устанавливаем в true
+			$c::$mi($class,true);
+			$srv=$c::$ms($class);
+			//(!!!todo: проверка точек входа api)
 			if(is_array($srv))$this->service[$class]["api"]=$srv;
 		}
 	}
@@ -228,8 +215,8 @@ final class core
 		for($c=$max;$c>=0;$c--)
 		{
 			if(!isset($this->system[$c]))continue;
-			if(@method_exists(__NAMESPACE__."\\".$this->system[$c]["class"],$this->modHookNames["sleep"]))
-				@call_user_func(array(__NAMESPACE__."\\".$this->system[$c]["class"],$this->modHookNames["sleep"]));
+			$cl=__NAMESPACE__."\\".$this->system[$c]["class"];
+			$cl::_sleep();
 		}
 	}
 
@@ -292,22 +279,47 @@ final class core
 		unset($_SESSION[$seskey]);
 	}
 
+	/**
+	* Возвращае название класса
+	*/
+	public function _class()
+	{
+		return $this->class;
+	}
+
 	public function _exec()
 	{
+		if($this->_runStep!=1)return;
+		$this->_runStep++;
 		if((render::type()==RENDER_TYPE_REDIR) || (render::type()==RENDER_TYPE_STATUS))return;
-		$this->__sysExec();
+		//подключаем собственные ресурсы
+		render::addScript($this->class,$this->class,true);
+		//выполняем модули ядра (расширения)
+		$this->__sysStage("_exec");
 		//загрузка и инициализация модулей страницы
 		$this->__modsLoad();
-		$this->__modsInit();
-		$this->__modsExec();
+		//инициализируем модули
+		$this->__modsStage($this->modHookNames["init"]);
+		//выполняем модули
+		$this->__modsStage($this->modHookNames["exec"]);
 	}
 
 	public function _init()
 	{
+		$this->_runStep=1;
 		if(strpos($this->class,"\\")!==false)
 		{
 			$cl=explode("\\",$this->class);
 			$this->class=$cl[count($cl)-1];
+		}
+		//режим отладки из URL
+		if(isset($_GET["fe-debug"]))
+		{
+			if($_GET["fe-debug"]==="1")$this->debug=true;
+			else
+			{
+				if($_GET["fe-debug"]==="0")$this->debug=false;
+			}
 		}
 		//загрузка конфига ядра
 		$this->__configLoad("",true);
@@ -332,8 +344,9 @@ final class core
 				$this->_pathParse();
 				//загрузка и инициализация модулей ядра
 				$this->__sysLoad();
-				$this->__sysInit();
-				$this->__sysService();
+				$this->__sysStage("_init");
+				module::__attach();
+				$this->__sysService($this->modHookNames["init"],$this->modHookNames["service"]);
 		}
 	}
 
@@ -347,10 +360,11 @@ final class core
 		if((render::type()==RENDER_TYPE_REDIR) || (render::type()==RENDER_TYPE_STATUS))return;
 		$this->actions=array();
 		$this->post=array();
-		$this->__modsSleep();
+		$this->__modsSleep($this->modHookNames["sleep"]);
 		$this->__sysSleep();
 		$this->modules=array();
 		$this->system=array();
+		$this->clConfig=array();
 		$this->metas=array();
 	}
 
@@ -358,6 +372,29 @@ final class core
 	{
 		if(!$actName)return count($this->actions);
 		return in_array($actName,$this->actions);
+	}
+
+	public function addConfig($class,$data,$core=false)
+	{
+		if(is_string($class))$clname=$class;
+		else
+		{
+			if(!is_object($class))return false;
+			$cl=@explode("\\",@get_class($class));
+			$clname=@array_pop($cl);
+		}
+		if(!is_array($data))return false;
+		if($core)
+		{
+			$branch="core";
+			$clname=ucfirst($clname);
+		}
+		else $branch="mods";
+		if(!@array_key_exists($branch,$this->clConfig))$this->clConfig[$branch]=array();
+		$br=&$this->clConfig[$branch];
+		if(!@array_key_exists($clname,$br))$br[$clname]=array();
+		$this->clConfig[$branch][$clname]=array_merge($br[$clname],$data);
+		return true;
 	}
 
 	public function addScript($class,$name="",$core=false)
@@ -373,6 +410,12 @@ final class core
 	public function appRoot()
 	{
 		return $this->appRoot;
+	}
+
+	public function clientConfig($branch)
+	{
+		if(isset($this->clConfig[$branch]))return json_encode($this->clConfig[$branch]);
+		else return "{}";
 	}
 
 	public function config($class,$name=false,$params=false,$load=true)
@@ -531,7 +574,7 @@ final class core
 		return isset($this->post[$key]);
 	}
 
-	public function services($mod,$fname)
+	public function services($mod,$fname="")
 	{
 		$srvs=array();
 		foreach($this->service as $smod=>$sdata)
@@ -541,11 +584,17 @@ final class core
 			{
 				if($tmod==$mod)
 				{
-					if(is_array($fname))
-					foreach($fnames as $name=>$value)
+					//если не указано имя api точки, то возвращаем все
+					if(!$fname)$srvs[$smod]=$fnames;
+					else
 					{
-						if($name==$fname)$srvs[]=array($smod,$value);
+						if(is_array($fnames))
+						foreach($fnames as $name=>$value)
+						{
+							if($name==$fname)$srvs[]=array($smod,$value);
+						}
 					}
+					break;
 				}
 			}
 		}
@@ -586,7 +635,7 @@ final class core
 
 	public function template()
 	{
-		return $this->config[$this->class]["template"]["value"];
+		return render::template();
 	}
 
 	public function version($str=false)

@@ -1,15 +1,22 @@
 <?
 namespace FlexEngine;
 defined("FLEX_APP") or die("Forbidden.");
-define("MSGR_TYPE_INF",0,false);
-define("MSGR_TYPE_WRN",1,false);
-define("MSGR_TYPE_ERR",2,false);
+
 define("MSGR_EMAIL_ADMIN","mail-admin",false);
 define("MSGR_EMAIL_DEVEL","mail-developer",false);
 define("MSGR_EMAIL_SUPRT","mail-support",false);
 define("MSGR_MAILER_DOMAIN","mailer-domain",false);
+
+define("MSGR_SHOW_DIALOG",0,false);
+define("MSGR_SHOW_CONSOLE",1,false);
+
+define("MSGR_TYPE_INF",0,false);
+define("MSGR_TYPE_WRN",1,false);
+define("MSGR_TYPE_ERR",2,false);
+
 final class msgr
 {
+	private static $_runStep	=	0;
 	private static $c			=	NULL;
 	private static $class		=	__CLASS__;
 	private static $config		=	array(
@@ -29,15 +36,60 @@ final class msgr
 	private static $errors		=	array();
 	private static $errorsQueue	=	array();
 	private static $items		=	array();
+	private static $session		=	array();
+
+	/**
+	* Чтение данных из сессии
+	*/
+	private static function _sessionRead()
+	{
+		//распаковываем сессию
+		$sesName=FLEX_APP_NAME."-".self::$class."-data";
+		if(isset($_SESSION[$sesName]))self::$session=unserialize($_SESSION[$sesName]);
+		//убеждаемся, что сессия была корректно сохранена
+		if(!is_array(self::$session))self::$session=array();
+		//читаем данные
+		if(isset(self::$session["items"]) && is_array(self::$session["items"]))self::$items=&self::$session["items"];
+	}
+
+	/**
+	* Запись данных в сессию
+	*/
+	private static function _sessionWrite()
+	{
+		//убеждаемся, что сессия не была повреждена во время выполнения
+		if(!is_array(self::$session))self::$session=array();
+		//записываем данные
+		if(count(self::$items))self::$session["items"]=&$items;
+		//пакуем сессию
+		$_SESSION[FLEX_APP_NAME."-".self::$class."-data"]=serialize(self::$session);
+	}
 
 	public static function _exec()
 	{
-		render::addStyle(self::$class,"",true);
-		render::addScript(self::$class,"",true);
+		if(self::$_runStep!=1)return;
+		self::$_runStep++;
+		if(!self::$c->silent())
+		{
+			$data=array("msgs"=>array(
+				"btnCapCancel"		=>	_t(LANG_MSGR_BTN_CAP_CANCEL),
+				"btnCapClose"		=>	_t(LANG_MSGR_BTN_CAP_CLOSE),
+				"btnCapConfirm"		=>	_t(LANG_MSGR_BTN_CAP_CONFIRM),
+				"dlgAlertTilleInf"	=>	_t(LANG_MSGR_DALERT_TITLE_INF),
+				"dlgAlertTitleErr"	=>	_t(LANG_MSGR_DALERT_TITLE_ERR),
+				"dlgAlertTitleWarn"	=>	_t(LANG_MSGR_DALERT_TITLE_WRN),
+				"dlgConfirmTitle"	=>	_t(LANG_MSGR_DCONFIRM_TITLE)
+			));
+			self::$c->addConfig(self::$class,$data,true);
+			render::addStyle(self::$class,"",true);
+			render::addScript(self::$class,"",true);
+		}
 	}
 
 	public static function _init()
 	{
+		if(self::$_runStep)return;
+		self::$_runStep++;
 		if(strpos(self::$class,"\\")!==false)
 		{
 			$cl=explode("\\",self::$class);
@@ -51,14 +103,12 @@ final class msgr
 			if(count($d) && ($d[0]=="www"))$d=array_shift($d);
 			self::$config[MSGR_MAILER_DOMAIN]=implode(".",$d);
 		}
-		if(isset($_SESSION[self::$class."-items"]))$setItems=unserialize($_SESSION[self::$class."-items"]);
-		else $setItems="";
-		if(is_array($setItems) && count($setItems))self::$items=$setItems;
+		//читаем сессию
+		self::_sessionRead();
 	}
 
 	public static function _render()
 	{
-		if(isset($_SESSION[self::$class."-items"]))unset($_SESSION[self::$class."-items"]);
 ?>
 <div id="<?=self::$class?>-items" style="display:none;">
 <?
@@ -72,17 +122,29 @@ final class msgr
 		{
 			$msg=self::$items[$cnt]["cont"];
 			$tp=self::$items[$cnt]["type"];
-			if(($tp<MSGR_TYPE_INF) || ($tp>MSGR_TYPE_ERR))$tp=MSGR_TYPE_INF;
-			if($tp==MSGR_TYPE_INF)$tp="inf";
-			if($tp==MSGR_TYPE_WRN)$tp="wrn";
-			if($tp==MSGR_TYPE_ERR)$tp="err";
+			switch($tp)
+			{
+				case MSGR_TYPE_WRN:
+					$tp="wrn";
+					break;
+				case MSGR_TYPE_ERR:
+					$tp="err";
+					break;
+				default:
+					$tp="inf";
+			}
+			$show=self::$items[$cnt]["show"];
+			switch($show)
+			{
+				case MSGR_SHOW_DIALOG:
+					$show="dialog";
+					break;
+				default:
+					$show="console";
+			}
+
 ?>
-		<div id="<?=self::$class?>-item-<?=($cnt+1)?>" class="<?=self::$class?>-item">
-			<div class="title">Сообщение системы</div>
-			<div class="body <?=$tp?>">
-				<?=$msg?>
-			</div>
-		</div>
+		<div id="<?=self::$class?>-item-<?=($cnt+1)?>" data-title="<?=_t(LANG_MSGR_MSG_TITLE)?>" data-msgtype="<?=$tp?>" data-showtype="<?=$show?>"><?=$msg?></div>
 <?
 		}
 ?></div><?
@@ -91,7 +153,8 @@ final class msgr
 
 	public static function _sleep()
 	{
-		if(count(self::$items))$_SESSION[self::$class."-items"]=serialize(self::$items);
+		//сохраняем сессию
+		self::_sessionWrite();
 	}
 
 	public static function _template()
@@ -107,12 +170,13 @@ final class msgr
 	* @param string $msg
 	* @param int $mtype
 	*/
-	public static function add($msg,$mtype=MSGR_TYPE_INF)
+	public static function add($msg,$mtype=MSGR_TYPE_INF,$mshow=MSGR_SHOW_DIALOG)
 	{
 		if(self::$c->silent())return false;
 		$len=count(self::$items);
 		self::$items[$len]["cont"]=$msg;
 		self::$items[$len]["type"]=$mtype;
+		self::$items[$len]["show"]=$mshow;
 		return true;
 	}
 
@@ -204,7 +268,7 @@ final class msgr
 	public static function errorLog($msg,$show=false,$class="",$func="",$line="",$ext="")
 	{
 		if(!$msg)return false;
-		if($show)self::add($msg,MSGR_TYPE_ERR);
+		if($show)self::add($msg,MSGR_TYPE_ERR,MSGR_SHOW_CONSOLE);
 		$dd=false;
 		if(!$class || !$func || !$line)
 		{

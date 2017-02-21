@@ -29,19 +29,18 @@ define("FLEX_APP_DIR_SRC",$path,false);
 define("FLEX_APP_DIR_TPL","templates",false);
 //custom directories
 define("FLEX_APP_DIR_HLP_ACEED",FLEX_APP_DIR_HLP."/ace",false);
-define("FLEX_APP_DIR_HLP_CKEED",FLEX_APP_DIR_HLP."/ckeditor",false);
-define("FLEX_APP_DIR_HLP_CKEED4",FLEX_APP_DIR_HLP."/ckeditor4",false);
+define("FLEX_APP_DIR_HLP_CKED",FLEX_APP_DIR_HLP."/ckeditor",false);
+define("FLEX_APP_DIR_HLP_CKED4",FLEX_APP_DIR_HLP."/ckeditor4",false);
 define("FLEX_APP_DIR_TOOL","tools",false);
 define("FLEX_APP_OUT_STR","flex-engine-",false);
 //session_destroy();
 
 function __autoload($classname)
 {
-	if(strpos($classname,"\\")!==false)
-	{
-		$cname=explode("\\",$classname);
-		$cname=$cname[count($cname)-1];
-	}
+	//normalizing names
+	$cname=str_replace(__NAMESPACE__."\\","",$classname);
+	$classname=__NAMESPACE__."\\".$cname;
+	//trying various pathes to include
 	@include_once(FLEX_APP_DIR."/".FLEX_APP_DIR_MOD."/class.".$cname."/".$cname.".php");
 	if(@class_exists($classname,false))return true;
 	if(defined("ADMIN_MODE"))@include_once(FLEX_APP_DIR_MOD."/class.".$cname."/".((($cname!=ADMIN_MODE)?"admin/":"").$cname).".php");

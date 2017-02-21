@@ -16,6 +16,7 @@ define("LIB_STR_TYPES",$c,false);
 
 final class lib
 {
+	private static $_runStep 			=	0;
 	private static $c 					=	null;
 	private static $class				=	__CLASS__;
 	private static $lastMsg				=	"";
@@ -24,11 +25,15 @@ final class lib
 
 	public static function _exec()
 	{
+		if(self::$_runStep!=1)return;
+		self::$_runStep++;
 		render::addScript(self::$class,self::$class,true);
 	}
 
 	public static function _init()
 	{
+		if(self::$_runStep)return;
+		self::$_runStep++;
 		if(strpos(self::$class,"\\")!==false)
 		{
 			$cl=explode("\\",self::$class);
@@ -36,6 +41,8 @@ final class lib
 		}
 		self::$c=_a::core();
 	}
+
+	public static function _sleep(){}
 
 	public static function addZeros($digs,$num)
 	{

@@ -1,82 +1,61 @@
 /* ---- сообщения (поп-ап) --- */
 .msgr {}
-.msgr-item .title {
-	padding:5px;
-	background-color:#eceaea;
-	border:1px solid #ededed;
-	border-radius:5px;
-	-moz-outline-radius:5px;
-  	font-weight:bold;
-  	text-align:left;
-}
-.msgr-item .body {
-	 font-size:12px;
-	 min-height:50px;
-	 padding:10px 10px 10px 10px;
-	 overflow:hidden;
-	 background-position:20px center;
-	 background-repeat:no-repeat;
-}
-.msgr-item .body.inf {
-	padding-left:90px;
-	color:#000;
-	background-image:url('{$modTplDir}images/alert_i.gif');
-}
-.msgr-item .body.wrn {
-	padding-left:90px;
-	color:#c38c1e;
-	background-image:url('{$modTplDir}images/alert_c.gif');
-}
-.msgr-item .body.err {
-	padding-left:90px;
-	color:#ff0000;
-	background-image:url('{$modTplDir}images/alert_e.gif');
-}
 .msgr .alert-box {
 	text-align:left;
-	padding:5px 20px;
 }
-.msgr .alert-box .ab-title {
-	padding:0 0 0 40px;
+.msgr .alert-box .mab-title {
+	padding:5px 5px 5px 40px;
+	font-size:14px;
+  	font-weight:bold;
+  	text-align:left;
+  	line-height:30px;
+	background-color:#eceaea;
 }
-.msgr .alert-box .ab-title span {
-	display:inline-block;
-	font-size:16px;
-	vertical-align:middle;
-}
-.msgr .alert-box .ab-title.inf {
+.msgr .alert-box .mab-title.mab-inf {
+	color:#6d6d6d;
 	background:url('{$modTplDir}images/alert_i.gif') left center no-repeat;
 }
-.msgr .alert-box .ab-title.wrn {
-	background:url('{$modTplDir}images/alert_c.gif') left center no-repeat;
+.msgr .alert-box .mab-title.mab-wrn {
+	color:#775c1f;
+	background:url('{$modTplDir}images/alert_w.png') left center no-repeat;
 }
-.msgr .alert-box .ab-title.err {
+.msgr .alert-box .mab-title.mab-err {
+	color:#772020;
 	background:url('{$modTplDir}images/alert_e.gif') left center no-repeat;
 }
-.msgr .alert-box .ab-title span.alr {
-	width:0;
-	min-height:32px;
+.msgr .alert-box .mab-title.mab-confirm {
+	color:#204B77;
+	background:url('{$modTplDir}images/confirm.png') left center no-repeat;
+}
+.msgr .alert-box .mab-title.mab-confirm2 {
+	color:#457720;
+	background:url('{$modTplDir}images/confirm2.png') left center no-repeat;
+}
+.msgr .alert-box .mab-body {
+	font-size:14px;
+	padding:15px 15px 30px 15px;
 	overflow:hidden;
+	background-position:20px center;
+	background-repeat:no-repeat;
 }
-.msgr .alert-box .ab-body {
-	padding:15px 0 15px 0;
-}
-.msgr .alert-box .ab-buttons {
+.msgr .alert-box .mab-buttons {
 	text-align:center;
 }
-.msgr .alert-box .ab-buttons .btn {
+.msgr .alert-box .mab-buttons .mab-btn {
 	display:inline-block;
 	width:90px;
 	padding:4px 0;
+	margin-left:20px;
 	text-align:center;
 	cursor:pointer;
 	border:1px solid #bcbcbc;
+	border-radius: 3px;
 	background-color:#fff;
 }
-.msgr .alert-box .ab-buttons .btn.ok {
-	margin-left:20px;
+.msgr .alert-box .mab-buttons .mab-btn:first-child {
+	margin-left:0;
 }
-.msgr .alert-box .ab-buttons .btn:hover {
+.msgr .alert-box .mab-buttons .mab-btn:hover {
 	background-color:#f0f0f0;
 	color:#0b55c4;
 }

@@ -1,6 +1,7 @@
 <?
 namespace FlexEngine;
 defined("FLEX_APP") or die("Forbidden.");
+define("FLEX_APP_NAME","flexengine",false);
 include FLEX_APP_DIR."/const.php";
 /* ---->>> development mode helper ---- */
 if(FLEX_APP_DIR_SRC && isset($_GET["feh-rsc-get"]))
@@ -82,7 +83,7 @@ if(isset($_GET["fe-app-restart"])) // && ($_GET["fe-app-restart"]==session_id())
 	session_destroy();
 	session_start();
 }
-if(!isset($_SESSION["FLEX_APP_STARTED"]))$_SESSION["FLEX_APP_STARTED"]=microtime();
+if(!isset($_SESSION["FLEX_APP_STARTED"]))$_SESSION["FLEX_APP_STARTED"]=microtime(true);
 $_SESSION["FLEX_APP_RENEWED"]=microtime(true);
 ini_set("magic_quotes_runtime",0);
 ini_set("magic_quotes_gpc",0);
@@ -100,9 +101,9 @@ final class _a
 
 	public static function _render()
 	{
-		if(isset($_SESSION["core"]))
+		if(isset($_SESSION[FLEX_APP_NAME."-core"]))
 		{
-			self::$c=unserialize($_SESSION["core"]);
+			self::$c=unserialize($_SESSION[FLEX_APP_NAME."-core"]);
 			if(!is_object(self::$c))self::$c=new core();
 		}
 		else self::$c=new core();
@@ -110,7 +111,7 @@ final class _a
 		self::$c->_exec();
 		self::$c->_render();
 		self::$c->_sleep();
-		$_SESSION["core"]=serialize(self::$c);
+		$_SESSION[FLEX_APP_NAME."-core"]=serialize(self::$c);
 	}
 }
 _a::_render();

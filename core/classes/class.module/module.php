@@ -12,10 +12,10 @@ class module
 
 	final private static function _iClass($class)
 	{
-		if(@strpos($class,"\\")!==false)
+		if(strpos($class,"\\")!==false)
 		{
-			$cl=@explode("\\",$class);
-			$class=$cl[@count($cl)-1];
+			$cl=explode("\\",$class);
+			$class=$cl[count($cl)-1];
 		}
 		return $class;
 	}
@@ -25,7 +25,9 @@ class module
 		if($clChk)$class=self::_iClass($class);
 		if(!$class)return($set?self::$__ic=false:false);
 		foreach(self::$__is as $i)
+        {
 			if($i->__instance===$class)return($set?self::$__ic=$i:$i);
+        }
 		return($set?self::$__ic=false:false);
 	}
 
@@ -99,15 +101,17 @@ class module
 	final private static function _sessionRead()
 	{
 		if(!self::$__ic)return;
+		$sesName=FLEX_APP_NAME."-".self::$__ic->__instance."-data";
 		if(self::_isAdmn())
 		{
-			if(isset($_SESSION[self::$__ic->__instance."-data-admin"]))
-				self::$__ic->__sessionAdmin=@unserialize(base64_decode($_SESSION[self::$__ic->__instance."-data-admin"]));
+			$sesName=$sesName."-admin";
+			if(isset($_SESSION[$sesName]))
+				self::$__ic->__sessionAdmin=@unserialize(base64_decode($_SESSION[$sesName]));
 		}
 		else
 		{
-			if(isset($_SESSION[self::$__ic->__instance."-data"]))
-				self::$__ic->__session=@unserialize($_SESSION[self::$__ic->__instance."-data"]);
+			if(isset($_SESSION[$sesName]))
+				self::$__ic->__session=@unserialize($_SESSION[$sesName]);
 		}
 	}
 
@@ -117,13 +121,96 @@ class module
 		if(self::_isAdmn())
 		{
 			if(@count(self::$__ic->__sessionAdmin))
-				$_SESSION[self::$__ic->__instance."-data-admin"]=@base64_encode(@serialize(self::$__ic->__sessionAdmin));
+				$_SESSION[FLEX_APP_NAME."-".self::$__ic->__instance."-data-admin"]=@base64_encode(@serialize(self::$__ic->__sessionAdmin));
 		}
 		else
 		{
 			if(@count(self::$__ic->__session))
-				$_SESSION[self::$__ic->__instance."-data"]=@serialize(self::$__ic->__session);
+				$_SESSION[FLEX_APP_NAME."-".self::$__ic->__instance."-data"]=@serialize(self::$__ic->__session);
 		}
+	}
+
+	final protected static function action($actName)
+	{
+		return self::$__c->action($actName);
+	}
+
+	final protected static function clientConfigAdd($data=array())
+	{
+		$class=str_replace(__NAMESPACE__."\\","",@get_called_class());
+		return self::$__c->addConfig($class,$data);
+	}
+
+	final protected static function dt($dt,$full=false,$sect="-")
+	{
+		return lib::dt($dt,$full,$sect);
+	}
+
+	final protected static function dtR($dt,$full=false,$sect=".")
+	{
+		return lib::dtR($dt,$full,$sect);
+	}
+
+	final protected static function dtRValid($dt)
+	{
+		return lib::validDtRus($dt);
+	}
+
+	final protected static function mediaFetch($id,$childs=true)
+	{
+		return media::fetch($id,$childs);
+	}
+
+	final protected static function mediaFetchArray()
+	{
+		$args=func_get_args();
+		if(!count($args) || (is_int($args[0]) || (is_string($args[0]) && (0+$args[0]>0))))
+		{
+			$class=str_replace(__NAMESPACE__."\\","",@get_called_class());
+			$entity=isset($args[0])?$args[0]:false;
+			$filters=isset($args[1])?$args[1]:array();
+			$range=isset($args[2])?$args[2]:false;
+			$childs=isset($args[3])?$args[3]:false;
+		}
+		else
+		{
+			$class=isset($args[0])?$args[0]:"";
+			$entity=isset($args[1])?$args[1]:false;
+			$filters=isset($args[2])?$args[2]:array();
+			$range=isset($args[3])?$args[3]:false;
+			$childs=isset($args[4])?$args[4]:false;
+		}
+		return media::fetchArray($class,$entity,$filters,$range,$childs);
+	}
+
+	final protected static function mediaLastMsg()
+	{
+		return media::lastMsg();
+	}
+
+	final protected static function mquotes_gpc()
+	{
+		return lib::mquotes_gpc();
+	}
+
+	final protected static function mquotes_runtime()
+	{
+		return lib::mquotes_runtime();
+	}
+
+	final protected static function msgAdd($msg,$msgType=MSGR_TYPE_INF,$msgShow=MSGR_SHOW_DIALOG)
+	{
+		msgr::add($msg,$msgType,$msgShow);
+	}
+
+	final protected static function pageIndex()
+	{
+		return content::pageIndex();
+	}
+
+	final protected static function post($var)
+	{
+		return self::$__c->post($var);
 	}
 
 	final protected static function q($q,$die=false,$debug=array("msg"=>"Ошибка выполнения запроса к БД."))
@@ -140,9 +227,65 @@ class module
 		return db::fetch($r,$a);
 	}
 
+	final protected static function silent()
+	{
+		return self::$__silent;
+	}
+
+	final protected static function tb($name)
+	{
+		return db::tnm($name);
+	}
+
+	final protected static function tbMeta()
+	{
+		$args=func_get_args();
+		$c=count($args);
+		if($c<3)
+		{
+			if(($c==1) || ($c==2 && is_bool($args[1])))
+			{
+				$class=str_replace(__NAMESPACE__."\\","",@get_called_class());
+				$tname=$args[0];
+				if($c)$force=$args[1];
+				else $force=false;
+			}
+			else
+			{
+				if(!$c)$class=str_replace(__NAMESPACE__."\\","",@get_called_class());
+				else $class=isset($args[0])?$args[0]:"";
+				$tname=isset($args[1])?$args[1]:"";
+				$force=false;
+			}
+		}
+		else
+		{
+			$class=$args[0];
+			$tname=$args[1];
+			$force=$args[2];
+		}
+		return db::tMeta($class,$tname,$force);
+	}
+
+	final protected static function template()
+	{
+		return render::template();
+	}
+
 	final protected static function tplGet($tplSection="",$tplFile="",$useTemplatesSet="") {
 		$class=str_replace(__NAMESPACE__."\\","",@get_called_class());
-		return tpl::get($class,$tplSection="",$tplFile="",$useTemplatesSet="");
+		return tpl::get($class,$tplSection,$tplFile,$useTemplatesSet);
+	}
+
+	final public static function __attach()
+	{
+		if(!self::$__c)
+		{
+			self::$__c=_a::core();
+			self::$__silent=self::$__c->silent();
+			self::$__isadmin=defined("ADMIN_MODE") && auth::admin();
+			self::$__inited=true;
+		}
 	}
 
 	final public static function __callStatic($name,$arguments=array())
@@ -163,13 +306,8 @@ class module
 		{
 			switch($name)
 			{
-				case "__service":
-					if(isset(self::$_srv) && @count($arguments) && isset(self::$_srv[$arguments[0]]))return self::$_srv[$arguments[0]];
-					else return false;
 				case "_class":
 					return self::$__ic->__instance;
-				case "action":
-					return @call_user_func_array(array(self::$__c,$name),$arguments);
 				case "access":
 					return @call_user_func_array(array(__NAMESPACE__."\\"."auth","access"),$arguments);
 				case "appRoot":
@@ -190,8 +328,6 @@ class module
 						else return false;
 					}
 					return @call_user_func_array(array(self::$__c,"config"),$arguments);
-				case "dtR":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."lib",$name),$arguments);
 				case "lastErr":
 					return @call_user_func_array(array(__NAMESPACE__."\\"."msgr","errorGet"),$arguments);
 				case "lastMsg":
@@ -208,22 +344,10 @@ class module
 					return @call_user_func_array(array(__NAMESPACE__."\\"."lib","validStr"),$arguments);
 				case "mailSend":
 					return @call_user_func_array(array(__NAMESPACE__."\\"."msgr",$name),$arguments);
-				case "mediaFetch":
-					array_unshift($arguments,self::$__ic->__instance);
-					return @call_user_func_array(array(__NAMESPACE__."\\"."media","fetch"),$arguments);
-				case "mediaFetchArray":
-					array_unshift($arguments,self::$__ic->__instance);
-					return @call_user_func_array(array(__NAMESPACE__."\\"."media","fetchArray"),$arguments);
 				case "modHookName":
 					return @call_user_func_array(array(self::$__c,$name),$arguments);
 				case "modId":
 					return @call_user_func_array(array(self::$__c,$name),$arguments);
-				case "mquotes_gpc":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."lib",$name),$arguments);
-				case "mquotes_runtime":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."lib",$name),$arguments);
-				case "msgAdd":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."msgr","add"),$arguments);
 				case "path":
 					return @call_user_func_array(array(self::$__c,"path"),$arguments);
 				case "page":
@@ -231,8 +355,6 @@ class module
 				case "pageByModMethod":
 					array_unshift($arguments,self::$__ic->__instance);
 					return @call_user_func_array(array(__NAMESPACE__."\\"."content",$name),$arguments);
-				case "post":
-					return @call_user_func_array(array(self::$__c,$name),$arguments);
 				case "posted":
 					return @call_user_func_array(array(self::$__c,$name),$arguments);
 				case "resourceScriptAdd":
@@ -269,12 +391,8 @@ class module
 				case "sessionSet":
 					if(count($arguments)!=2)return"";
 					return self::_session($arguments[0],"set",$arguments[1]);
-				case "silent":
-					return self::$__silent;
 				case "silentXResponseSet":
 					return @call_user_func_array(array(self::$__c,"silentXResponseSet"),$arguments);
-				case "tb":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."db","tnm"),$arguments);
 				case "user":
 					return @call_user_func_array(array(__NAMESPACE__."\\"."auth","user"),$arguments);
 				default:
@@ -283,31 +401,42 @@ class module
 		}
 	}
 
-	final public static function __exec($instance)
+	final public static function __exec($instance,$srv=false)
 	{
+        //второй аргумент $srv пока что не используется
 		if(!self::_iGet($instance))return;
 		if(self::$__ic->__runstage>1)return;
 		self::$__ic->__runstage++;
-		if(@method_exists(__NAMESPACE__."\\".self::$__ic->__instance,"_on2exec"))
-			@call_user_func(array(__NAMESPACE__."\\".self::$__ic->__instance,"_on2exec"));
+		$class=__NAMESPACE__."\\".self::$__ic->__instance;
+		if(@method_exists($class,"_on2exec"))$class::_on2exec();
 	}
 
 	final public static function __init($instance,$srv=false)
 	{
-		if(!self::$__inited)
-		{
-			self::$__c=_a::core();
-			self::$__silent=self::$__c->silent();
-			self::$__isadmin=defined("ADMIN_MODE") && auth::admin();
-			self::$__inited=true;
-		}
-		if(!self::_iSet($instance) || $srv)return;
+        //для сервисных модулей __init вызывается 2 раза:
+        // 1-й: только для создания экземпляра (из метода ::__service)
+        // 2-й: для собственно инициализации (из метода core->__modsStage("__init"))
+        if($srv)
+        {
+            if(!self::_iGet($instance))
+            {
+                self::_iSet($instance);
+                return;
+            }
+        }
+        //если модуль не сервисный, то создаем экземпляр
+        //и сразу его инициализируем
+        else
+        {
+            if(!self::_iSet($instance))return;
+        }
 		if(self::$__ic->__runstage>0)return;
 		self::$__ic->__runstage++;
 		if(isset(static::$configDefault))self::$__ic->__config["data"]=static::$configDefault;
 		self::_sessionRead();
-		if(@method_exists(__NAMESPACE__."\\".self::$__ic->__instance,"_on1init"))
-			@call_user_func_array(array(__NAMESPACE__."\\".self::$__ic->__instance,"_on1init"),array(self::_isAdmn()));
+		$class=__NAMESPACE__."\\".self::$__ic->__instance;
+		if(@method_exists($class,"_on1init"))$class::_on1init();
+		if(@method_exists($class,"_hookLangData"))lang::extend($class::_hookLangData(lang::index()));
 	}
 
 	final public static function __install($instance)
@@ -324,9 +453,10 @@ class module
 		if(self::$__ic->__runstage>0)return;
 		self::$__ic->__runstage++;
 		self::$__ic->__instance=$__instance;
-		if(@method_exists(__NAMESPACE__."\\".self::$__ic->__instance,"_on_install"))
+		$class=__NAMESPACE__."\\".self::$__ic->__instance;
+		if(@method_exists($class,"_on_install"))
 		{
-			$res=@call_user_func(array(__NAMESPACE__."\\".self::$__ic->__instance,"_on_install"));
+			$res=@call_user_func(array($class,"_on_install"));
 			if(!is_bool($res))$res=true;
 			return $res;
 		}
@@ -345,36 +475,56 @@ class module
 		if(self::$__ic->__runstage>0)return;
 		self::$__ic->__runstage++;
 		self::$__ic->__instance=$__instance;
-		if(@method_exists(__NAMESPACE__."\\".self::$__ic->__instance,"_on_uninstall"))
+		$class=__NAMESPACE__."\\".self::$__ic->__instance;
+		if(@method_exists($class,"_on_uninstall"))
 		{
-			$res=@call_user_func(array(__NAMESPACE__."\\".self::$__ic->__instance,"_on_uninstall"));
+			$res=@call_user_func(array($class,"_on_uninstall"));
 			if(!is_bool($res))$res=true;
 			return $res;
 		}
 		return true;
 	}
 
-	final public static function __render($instance,$section="")
+	/**
+	* Вызов функции рендеринга дочернего класса
+	*
+	* @param string $instance - имя класса, например FlexEngine\mymod
+	* @param integer $sid - номер спота
+	* @param string $method - функция рендеринга, по-умолчанию - __render
+	*/
+	final public static function __render($instance,$sid,$method="")
 	{
 		if(!self::_iGet($instance))return;
+		//получаем все аргументы, и удаляем первый $instance
+		//так как это системный аргумент
 		$args=func_get_args();
-		if(@method_exists(__NAMESPACE__."\\".self::$__ic->__instance,$section))
+		array_splice($args,0,1);
+		//заново формируем $class, так как $instance может
+		//содержать класс без указания namespace
+		$class=__NAMESPACE__."\\".self::$__ic->__instance;
+		//если существует пользовательский метод, то это означает
+		//что он напрямую прикреплен к споту, поэтому
+		//дополнительной удаляем аргументы $sid и $method
+		if($method && @method_exists($class,$method))
 		{
 			array_splice($args,0,2);
-			@call_user_func_array(array(__NAMESPACE__."\\".self::$__ic->__instance,$section),$args);
+			@call_user_func_array(array($class,$method),$args);
 		}
-		elseif(@method_exists(__NAMESPACE__."\\".self::$__ic->__instance,"_on3render"))
+		//в противном случае передаем $sid и $method в общую функцию рендеринга
+		//$method при этом будет указывать на шаблон $tpl ($method === $tpl)
+		elseif(@method_exists($class,"_on3render"))
 		{
-			array_splice($args,0,1);
-			@call_user_func_array(array(__NAMESPACE__."\\".self::$__ic->__instance,"_on3render"),$args);
+			//вырезаем системный префикс у названия шаблона
+			if(isset($args[1]))$args[1]=str_replace("tpl:","",$args[1]);
+			@call_user_func_array(array($class,"_on3render"),$args);
 		}
 	}
 
 	final public static function __service($instance)
 	{
 		if(!self::_iGet($instance))return;
-		$i=__NAMESPACE__."\\".self::$__ic->__instance;
-		if(isset($i::$_srv) && count($i::$_srv))return $i::$_srv;
+		$class=__NAMESPACE__."\\".self::$__ic->__instance;
+		if(@method_exists($class,"_on0service"))return $class::_on0service();
 		else return false;
 	}
 
@@ -383,12 +533,9 @@ class module
 		if(!self::_iGet($instance))return;
 		if(self::$__ic->__runstage>2)return;
 		self::$__ic->__runstage++;
-		if(@method_exists(__NAMESPACE__."\\".self::$__ic->__instance,"_on4sleep"))
-			@call_user_func(array(__NAMESPACE__."\\".self::$__ic->__instance,"_on4sleep"));
+		$class=__NAMESPACE__."\\".self::$__ic->__instance;
+		if(@method_exists($class,"_on4sleep"))$class::_on4sleep();
 		self::_sessionWrite();
 	}
-
-
 }
-
 ?>

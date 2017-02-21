@@ -3,6 +3,7 @@ namespace FlexEngine;
 defined("FLEX_APP") or die("Forbidden.");
 final class content
 {
+	private static $_runStep	=	0;
 	private static $adminRunner	=	array(
 		"admin"					=>	"",
 	);
@@ -10,6 +11,7 @@ final class content
 	private static $class		=	__CLASS__;
 	private static $config		=	array(
 			"index"				=>	"index",
+			"pathDefId"			=>	0,
 			"pathDefAlias"		=>	"index",
 			"pathMaxSects"		=>	10,
 			"spotsDefault"		=>	array(1,2,3,4,5,6,10,11,12,13,16,21,22)
@@ -23,58 +25,53 @@ final class content
 			"meta_kw"			=>	"",
 			"nolayout"			=>	false,
 			"spots"				=>	array(),
-			"title"				=>	"Страница не найдена",
+			"title"				=>	"Page not found",
 			"title_add"			=>	"",
 			"title_new"			=>	"",
 			"show_title"		=>	false,
+			"title_incontent"	=>	false,
 			"updated"			=>	"0000-00-00 00:00:00"
 	);
 	private static $path		=	array();
 	private static $session		=	array();
 	private static $styles		=	array();
 
-	private static function _data($id,$render,$raw)
+	private static function _data($id,$exposeError,$raw=false)
 	{
-		$path=FLEX_APP_DIR_DAT."/_".self::$class."/".$id."/".self::$config["index"].".php";
-		$fe=@file_exists($path);
+		$path=FLEX_APP_DIR_DAT."/_".self::$class."/".$id."/";
+		$file=$path.self::$config["index"].".php";
+		$fe=@file_exists($file);
 		$cont="";
 		if($raw)
 		{
 			if($fe)
 			{
-				$cont=@file_get_contents($path);
+				$cont=@file_get_contents($file);
+				if($cont)
+				{
+					if(lib::mquotes_runtime())$cont=stripslashes($cont);
+					$cont=lib::bomTrim($cont);
+					$cont=trim($cont);
+				}
 			}
-			else
-			{
-				@ob_start();
-				@include $path;
-				$cont=@ob_get_contents();
-				@ob_end_clean();
-			}
-			if($cont)
-			{
-				if(lib::mquotes_runtime())$cont=stripslashes($cont);
-				$cont=lib::bomTrim($cont);
-				$cont=trim($cont);
-			}
+			else $raw=false;
 		}
-		else
+		if(!$raw)
 		{
 			@ob_start();
-			@include $path;
+			@include $file;
 			$cont=@ob_get_contents();
 			@ob_end_clean();
 		}
-		if($render===false)return $cont;
+		if($cont)
+		{
+			$cont=str_replace("{\$contentDir}",FLEX_APP_DIR_ROOT.$path,$cont);
+		}
 		else
 		{
-			if(!$cont)
-			{
-				if(is_string($render) && !$fe)echo $render;
-				else echo"";
-			}
-			else echo $cont;
+			if(is_string($exposeError) && !$fe)$cont=$exposeError;
 		}
+		return $cont;
 	}
 
 	private static function _itemGet()
@@ -89,8 +86,25 @@ final class content
 			if(!$sects[0])$sects[0]=self::$config["pathDefAlias"];
 			else
 			{
-				foreach($sects as $key=>$sect)
-					$sects[$key]=mysql_real_escape_string($sect);
+				$nsects=array();
+				foreach($sects as $sect)
+				{
+					//для алиасов страниц разрешены дефис(-), нижний подчерк(_), латинские буквы,
+					//и цифры, если они используются вместе с латинскими буквами
+
+					//отсекаем секции, состоящие только из цифр
+					if(preg_match("/[0-9]+/",$sect))continue;
+					//отсекаем разные символы
+					//все спецсимволы регулярок \+*?[^]$(){}=!<>|:-
+					//спец символы регулярок *?<>|: браузер не пропускает и так
+					$qu="+[^]\$(){}=!";
+					$pregq=preg_quote($qu);
+					//в именах секций браузер не пропускает также .#%&
+					if(preg_match("/[',;@\s".$pregq."]+/",$sect))continue;
+					//на всякий случай эскейпим
+					$nsects[]=mysql_real_escape_string($sect);
+				}
+				$sects=$nsects;
 			}
 		}
 		if(count($sects))
@@ -111,7 +125,6 @@ final class content
 				$end=1;
 			}
 			$fnd=false;
-			if($start==0)$path[0]=array("id"=>1,"alias"=>self::$config["pathDefAlias"]);
 			for($cnt=$start;$cnt<$end;$cnt++)
 			{
 				$ind=$cnt;
@@ -128,6 +141,7 @@ final class content
 						self::$item["id"]=0+$rec["id"];
 						self::$item["nolayout"]=true && $rec["nolayout"];
 						self::$item["show_title"]=true && $rec["show_title"];
+						self::$item["title_incontent"]=true && $rec["title_incontent"];
 						self::$item["created"]=$rec["created"];
 						self::$item["updated"]=$rec["updated"];
 						self::$item["spots"]=($rec["force_spots"]?explode(",",$rec["force_spots"]):array());
@@ -139,7 +153,13 @@ final class content
 					}
 				}
 			}
-			if($start<0)array_unshift($path,array("id"=>1,"alias"=>self::$config["pathDefAlias"]));
+			//default page
+			if(self::$config["pathDefId"])
+			{
+				$ind=array("id"=>self::$config["pathDefId"],"alias"=>self::$config["pathDefAlias"]);
+				if($start<0)array_unshift($path,$ind);
+				else array_push($path,$ind);
+			}
 		}
 		self::$path=$path;
 	}
@@ -147,32 +167,43 @@ final class content
 	private static function _renderNotFound($msg)
 	{
 ?>
-		<div class="notfound"><?=$msg?></div>
+		<div class="content content-404"><?=$msg?></div>
 <?
-	}
-
-	private static function _sessionRead()
-	{
-		if(isset($_SESSION[self::$class."Data"]))
-			self::$session=unserialize($_SESSION[self::$class."Data"]);
 	}
 
 	/**
 	* Чтение данных из сессии
-	*
+	*/
+	private static function _sessionRead()
+	{
+		//распаковываем сессию
+		$sesName=FLEX_APP_NAME."-".self::$class."-data";
+		if(isset($_SESSION[$sesName]))self::$session=unserialize($_SESSION[$sesName]);
+		//убеждаемся, что сессия была корректно сохранена
+		if(!is_array(self::$session))self::$session=array();
+	}
+
+	/**
+	* Запись данных в сессию
 	*/
 	private static function _sessionWrite()
 	{
-		if(count(self::$session))
-			$_SESSION[self::$class."Data"]=serialize(self::$session);
+		//убеждаемся, что сессия не была повреждена во время выполнения
+		if(!is_array(self::$session))self::$session=array();
+		//пакуем сессию
+		$_SESSION[FLEX_APP_NAME."-".self::$class."-data"]=serialize(self::$session);
 	}
 
 	public static function _exec()
 	{
+		if(self::$_runStep!=1)return;
+		self::$_runStep++;
 	}
 
 	public static function _init()
 	{
+		if(self::$_runStep)return;
+		self::$_runStep++;
 		if(strpos(self::$class,"\\")!==false)
 		{
 			$cl=explode("\\",self::$class);
@@ -183,22 +214,37 @@ final class content
 		self::_itemGet();
 	}
 
-	public static function _render()
+	public static function _render($sid,$ads=true)
 	{
+		if(!self::$item["id"])
+		{
+?>
+	<div id="<?=self::$class?>" class="<?=self::$class?> <?=self::$class?>-404"><?=_t(LANG_CONTENT_P404)?></div>
+<?
+			return;
+		}
+		$content="";
+		$mods=count(render::modsInSpot(2))+count(render::modsInSpot($sid))+count(render::modsInSpot(3));
+		if(!self::$item["nolayout"])
+		{
+			$content=self::_data(self::$item["id"],_t(LANG_CONTENT_DELETED),false);
+		}
+		if($content || (!$content && !$mods))
+		{
 ?>
 	<div id="<?=self::$class?>" class="<?=self::$class?>">
-		<div id="<?=self::$class?>-item-<?=self::$item["id"]?>" class="content-item _-<?=self::$item["alias"]?>">
 <?
-		if(!self::$item["id"])self::_renderNotFound("Страница не найдена.");
-		else
-		{
-			if(!self::$item["nolayout"])
-				self::_data(self::$item["id"],"Содержимое страницы удалено или перемещено.");
-		}
+			if(self::$item["title_incontent"])
+			{
 ?>
-		</div>
+		<h1 class="<?=self::$class?>-title"><?=(self::$item["title_new"]?self::$item["title_new"]:self::$item["title"])?><?=($ads?self::$item["title_add"]:"")?></h1>
+<?
+			}
+?>
+		<div id="<?=self::$class?>-item-<?=self::$item["id"]?>" class="<?=self::$class?>-item __<?=self::$item["alias"]?>"><?=$content?></div>
 	</div>
 <?
+		}
 	}
 
 	/**
@@ -228,13 +274,18 @@ final class content
 				INNER JOIN ".db::tnm("render_binds")." `b` ON `b`.`mid`=`m`.`id`
 				INNER JOIN ".db::tnm("render_bind_adds")." `pb` ON `pb`.`bid`=`b`.`id`
 				INNER JOIN ".db::tnm(self::$class)." `c` ON `c`.`id`=`pb`.`cid`
-				WHERE `m`.`class`='{$mod}' AND `b`.`pages`='none' AND `b`.`method`=''";
+				WHERE `m`.`class`='{$mod}' AND `b`.`pages`='none' AND (`b`.`method`='' OR `b`.`method` LIKE 'tpl:%')";
 				$r=db::q($q,true);
 				$rec=mysql_fetch_row($r);
 				if($rec)return $rec[0];
 			}
 		}
 		return"";
+	}
+
+	public static function pageIndex()
+	{
+		return self::$config["index"];
 	}
 
 	public static function check($field="",$value="",$cid=0,$uniq=true)
@@ -649,19 +700,18 @@ final class content
 
 	public static function title($render=true,$ads=true)
 	{
-		if($render)
+		if($render && !self::$item["title_incontent"] && self::$item["show_title"])
 		{
-			if(self::$item["show_title"])
-			{
 ?>
 		<div class="<?=self::$class?>">
 			<h1 class="title"><?=(self::$item["title_new"]?self::$item["title_new"]:self::$item["title"])?><?=($ads?self::$item["title_add"]:"")?></h1>
 		</div>
 <?
-			}
-			return;
 		}
-		return (self::$item["title_new"]?self::$item["title_new"]:self::$item["title"]).($ads?self::$item["title_add"]:"");
+		else
+		{
+			if(!$render)return (self::$item["title_new"]?self::$item["title_new"]:self::$item["title"]).($ads?self::$item["title_add"]:"");
+		}
 	}
 
 	public static function titleAdd($title)

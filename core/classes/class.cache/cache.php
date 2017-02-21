@@ -3,17 +3,22 @@ namespace FlexEngine;
 defined("FLEX_APP") or die("Forbidden.");
 final class cache
 {
-	private static $c		=	NULL;
-	private static $class	=	__CLASS__;
-	private static $dir		=	"";
-	private static $timeout	=	180;
+	private static $_runStep	=	0;
+	private static $c			=	NULL;
+	private static $class		=	__CLASS__;
+	private static $dir			=	"";
+	private static $timeout		=	180;
 
 	public static function _exec()
 	{
+		if(self::$_runStep!=1)return;
+		self::$_runStep++;
 	}
 
 	public static function _init()
 	{
+		if(self::$_runStep)return;
+		self::$_runStep++;
 		if(strpos(self::$class,"\\")!==false)
 		{
 			$cl=explode("\\",self::$class);
@@ -24,13 +29,7 @@ final class cache
 		if(!@file_exists(self::$dir))@mkdir(self::$dir,0755,true);
 	}
 
-	public static function _render()
-	{
-	}
-
-	public static function _sleep()
-	{
-	}
+	public static function _sleep(){}
 
 	public static function check($class,$entity,$ttl=false,$ext="")
 	{
