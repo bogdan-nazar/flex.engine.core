@@ -20,9 +20,9 @@ class module
 		if($clChk)$class=self::_iClass($class);
 		if(!$class)return($set?self::$__ic=false:false);
 		foreach(self::$__is as $i)
-        {
+		{
 			if($i->__instance===$class)return($set?self::$__ic=$i:$i);
-        }
+		}
 		return($set?self::$__ic=false:false);
 	}
 
@@ -128,6 +128,11 @@ class module
 	final protected static function _class()
 	{
 		return self::_iClass(@get_called_class());
+	}
+
+	final protected static function access($access="r",$entity="")
+	{
+		return auth::access(self::_iClass(@get_called_class()),$access,$entity);
 	}
 
 	final protected static function action($actName)
@@ -306,8 +311,6 @@ class module
 		{
 			switch($name)
 			{
-				case "access":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."auth","access"),$arguments);
 				case "appRoot":
 					return @call_user_func_array(array(self::$__c,$name),$arguments);
 				case "cacheSet":
@@ -401,7 +404,7 @@ class module
 
 	final public static function __exec($instance,$srv=false)
 	{
-        //второй аргумент $srv пока что не используется
+		//второй аргумент $srv пока что не используется
 		if(!self::_iGet($instance))return;
 		if(self::$__ic->__runstage>1)return;
 		self::$__ic->__runstage++;
@@ -411,23 +414,23 @@ class module
 
 	final public static function __init($instance,$srv=false)
 	{
-        //для сервисных модулей __init вызывается 2 раза:
-        // 1-й: только для создания экземпляра (из метода ::__service)
-        // 2-й: для собственно инициализации (из метода core->__modsStage("__init"))
-        if($srv)
-        {
-            if(!self::_iGet($instance))
-            {
-                self::_iSet($instance);
-                return;
-            }
-        }
-        //если модуль не сервисный, то создаем экземпляр
-        //и сразу его инициализируем
-        else
-        {
-            if(!self::_iSet($instance))return;
-        }
+		//для сервисных модулей __init вызывается 2 раза:
+		// 1-й: только для создания экземпляра (из метода ::__service)
+		// 2-й: для собственно инициализации (из метода core->__modsStage("__init"))
+		if($srv)
+		{
+			if(!self::_iGet($instance))
+			{
+				self::_iSet($instance);
+				return;
+			}
+		}
+		//если модуль не сервисный, то создаем экземпляр
+		//и сразу его инициализируем
+		else
+		{
+			if(!self::_iSet($instance))return;
+		}
 		if(self::$__ic->__runstage>0)return;
 		self::$__ic->__runstage++;
 		if(isset(static::$configDefault))self::$__ic->__config["data"]=static::$configDefault;

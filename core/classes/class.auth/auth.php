@@ -496,8 +496,9 @@ final class auth
 		self::_sessionWrite();
 	}
 
-	public static function access($access="r",$owner="core",$entity="")
+	public static function access($owner="core",$access="r",$entity="")
 	{
+		if(array_pop(explode("\\",@get_called_class()))!="module")return false;
 		if(self::$user["admn"])return true;
 		if(!$entity)return false;
 		return false;
