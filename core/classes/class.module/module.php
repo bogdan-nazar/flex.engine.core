@@ -12,12 +12,7 @@ class module
 
 	final private static function _iClass($class)
 	{
-		if(strpos($class,"\\")!==false)
-		{
-			$cl=explode("\\",$class);
-			$class=$cl[count($cl)-1];
-		}
-		return $class;
+		return array_pop(explode("\\",$class));
 	}
 
 	final private static function _iGet($class,$set=true,$clChk=true)
@@ -130,6 +125,11 @@ class module
 		}
 	}
 
+	final protected static function _class()
+	{
+		return self::_iClass(@get_called_class());
+	}
+
 	final protected static function action($actName)
 	{
 		return self::$__c->action($actName);
@@ -137,7 +137,7 @@ class module
 
 	final protected static function clientConfigAdd($data=array())
 	{
-		$class=str_replace(__NAMESPACE__."\\","",@get_called_class());
+		$class=self::_iClass(@get_called_class());
 		return self::$__c->addConfig($class,$data);
 	}
 
@@ -245,14 +245,14 @@ class module
 		{
 			if(($c==1) || ($c==2 && is_bool($args[1])))
 			{
-				$class=str_replace(__NAMESPACE__."\\","",@get_called_class());
+				$class=self::_iClass(@get_called_class());
 				$tname=$args[0];
 				if($c)$force=$args[1];
 				else $force=false;
 			}
 			else
 			{
-				if(!$c)$class=str_replace(__NAMESPACE__."\\","",@get_called_class());
+				if(!$c)$class=self::_iClass(@get_called_class());
 				else $class=isset($args[0])?$args[0]:"";
 				$tname=isset($args[1])?$args[1]:"";
 				$force=false;
@@ -273,7 +273,7 @@ class module
 	}
 
 	final protected static function tplGet($tplSection="",$tplFile="",$useTemplatesSet="") {
-		$class=str_replace(__NAMESPACE__."\\","",@get_called_class());
+		$class=self::_iClass(@get_called_class());
 		return tpl::get($class,$tplSection,$tplFile,$useTemplatesSet);
 	}
 
@@ -306,8 +306,6 @@ class module
 		{
 			switch($name)
 			{
-				case "_class":
-					return self::$__ic->__instance;
 				case "access":
 					return @call_user_func_array(array(__NAMESPACE__."\\"."auth","access"),$arguments);
 				case "appRoot":
