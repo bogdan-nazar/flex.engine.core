@@ -4,6 +4,7 @@ namespace FlexEngine;
 class module
 {
 	private static $__c				=	null;
+	private static $__configTTL		=	300;
 	private static $__ic			=	false;
 	private static $__is			=	array();
 	private static $__inited		=	false;
@@ -101,12 +102,12 @@ class module
 		{
 			$sesName=$sesName."-admin";
 			if(isset($_SESSION[$sesName]))
-				self::$__ic->__sessionAdmin=@unserialize(base64_decode($_SESSION[$sesName]));
+				self::$__ic->__sessionAdmin=unserialize($_SESSION[$sesName]);
 		}
 		else
 		{
 			if(isset($_SESSION[$sesName]))
-				self::$__ic->__session=@unserialize($_SESSION[$sesName]);
+				self::$__ic->__session=unserialize($_SESSION[$sesName]);
 		}
 	}
 
@@ -116,12 +117,12 @@ class module
 		if(self::_isAdmn())
 		{
 			if(@count(self::$__ic->__sessionAdmin))
-				$_SESSION[FLEX_APP_NAME."-".self::$__ic->__instance."-data-admin"]=@base64_encode(@serialize(self::$__ic->__sessionAdmin));
+				$_SESSION[FLEX_APP_NAME."-".self::$__ic->__instance."-data-admin"]=serialize(self::$__ic->__sessionAdmin);
 		}
 		else
 		{
 			if(@count(self::$__ic->__session))
-				$_SESSION[FLEX_APP_NAME."-".self::$__ic->__instance."-data"]=@serialize(self::$__ic->__session);
+				$_SESSION[FLEX_APP_NAME."-".self::$__ic->__instance."-data"]=serialize(self::$__ic->__session);
 		}
 	}
 
@@ -140,10 +141,92 @@ class module
 		return self::$__c->action($actName);
 	}
 
+	final protected static function appRoot()
+	{
+		return FLEX_APP_DIR_ROOT;
+	}
+
+	final protected static function cacheCheck($class,$entity,$ttl=false,$ext="")
+	{
+		return cache::check($class,$entity,$ttl,$ext);
+	}
+
+	final protected static function cacheGet($class,$entity,$ttl=false,$echo=false,$ext="")
+	{
+		return cache::get($class,$entity,$ttl,$echo,$ext);
+	}
+
+	final protected static function cacheSet($class,$entity,$ttl,$value,$echo=false,$ext="")
+	{
+		return cache::set($class,$entity,$ttl,$value,$echo,$ext);
+	}
+
+	final protected static function cacheTimeout()
+	{
+		return cache::getTimeout();
+	}
+
 	final protected static function clientConfigAdd($data=array())
 	{
 		$class=self::_iClass(@get_called_class());
 		return self::$__c->addConfig($class,$data);
+	}
+
+	final protected static function config($name=false,$params=false,$load=false,$core=false)
+	{
+		//если запрошен конфиг ядра, то запрашиваем получение и выходим
+		if($core)return self::$__c->config(false,$name,$params,false);
+		//определяем вызывающий модуль
+		$class=@get_called_class();
+		if(!self::_iGet($class))return false;
+		//если запрошено обновление конфига из БД, то пытаемся выполнить...
+		if($load)
+		{
+			//если имя параметра не задано, то делаем полное обновление
+			if(!$name)
+			{
+				self::$__session["configTime"]=time();
+				self::$__session["config"]=self::$__c->config($class);
+			}
+			else
+			{
+				self::$__session["config"]=array_merge_recursive(self::$__session["config"],self::$__c->config($class,$name));
+			}
+			self::$__ic->__config["data"]=array_merge_recursive(self::$__ic->__config["data"],self::$__ic->__session["config"]);
+		}
+		//если не задано имя параметра, возвращаем весь конфиг
+		if(!$name)
+		{
+			if(isset(self::$__ic->__config["data"]))
+			{
+				if($params)return self::$__ic->__config["data"];
+				else
+				{
+					$cfg=array();
+					foreach(self::$__ic->__config["data"] as $name=>$val)
+					{
+						if(isset($val["value"]))$cfg[$name]=$val["value"];
+						else $cfg[$name]="";
+					}
+					return $cfg;
+				}
+			}
+		}
+		//а если задано, то пытаемся вернуть значение параметра
+		else
+		{
+			if($params)
+			{
+				if(isset(self::$__ic->__config["data"][$name]))return self::$__ic->__config["data"][$name];
+				else return"";
+			}
+			else
+			{
+				if(isset(self::$__ic->__config["data"][$name]) &&
+					isset(self::$__ic->__config["data"][$name]["value"]))return self::$__ic->__config["data"][$name]["value"];
+				else return"";
+			}
+		}
 	}
 
 	final protected static function dt($dt,$full=false,$sect="-")
@@ -311,24 +394,6 @@ class module
 		{
 			switch($name)
 			{
-				case "appRoot":
-					return @call_user_func_array(array(self::$__c,$name),$arguments);
-				case "cacheSet":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."cache","set"),$arguments);
-				case "config":
-					$c=count($arguments);
-					if($c>2)return false;
-					if(!$c)
-					{
-						if(isset(self::$__ic->__config["data"]))return self::$__ic->__config["data"];
-						else return false;
-					}
-					if($c==1)
-					{
-						if(isset(self::$__ic->__config["data"][$arguments[0]]))return self::$__ic->__config["data"][$arguments[0]];
-						else return false;
-					}
-					return @call_user_func_array(array(self::$__c,"config"),$arguments);
 				case "lastErr":
 					return @call_user_func_array(array(__NAMESPACE__."\\"."msgr","errorGet"),$arguments);
 				case "lastMsg":
@@ -433,8 +498,22 @@ class module
 		}
 		if(self::$__ic->__runstage>0)return;
 		self::$__ic->__runstage++;
-		if(isset(static::$configDefault))self::$__ic->__config["data"]=static::$configDefault;
 		self::_sessionRead();
+		//обрабатываем конфиг
+		$cfgLoad=false;
+		self::$__configTTL=self::$__c->config(false,"config-reload");
+		if(isset(static::$configDefault))self::$__ic->__config["data"]=static::$configDefault;
+		if(!isset(self::$__ic->__session["config"]))$cfgLoad=true;
+		else
+		{
+			$tm=time();
+			if(!isset(self::$__ic->__session["configTime"]) || ((time()-self::$__ic->__session["configTime"])>self::$configTTL))
+			{
+				self::$__ic->__session["configTime"]=$tm;
+				self::$__ic->__session["config"]=self::$__c->config($instance);
+				self::$__ic->__config["data"]=array_merge_recursive(self::$__ic->__config["data"],self::$__ic->__session["config"]);
+			}
+		}
 		$class=__NAMESPACE__."\\".self::$__ic->__instance;
 		if(@method_exists($class,"_on1init"))$class::_on1init();
 		if(@method_exists($class,"_hookLangData"))lang::extend($class::_hookLangData(lang::index()));

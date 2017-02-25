@@ -380,8 +380,7 @@ final class core
 		else
 		{
 			if(!is_object($class))return false;
-			$cl=@explode("\\",@get_class($class));
-			$clname=@array_pop($cl);
+			$clname=array_pop(explode("\\",get_class($class)));
 		}
 		if(!is_array($data))return false;
 		if($core)
@@ -418,6 +417,17 @@ final class core
 		else return "{}";
 	}
 
+	/**
+	* Функция загружает и возвращает конфигурационные данные модуля,
+	* если $class == false, значит требуется вернуть конфиг ядра
+	*
+	* @param string $class - имя модуля, конфиг которого запрашивается
+	* @param mixed $name - название конфигурационного параметра
+	* @param boolean $params - возвращать ли в результатах опциональное поле "params"
+	* @param boolean $load - форсировать загрузку данных из базы
+	*
+	* @return array
+	*/
 	public function config($class,$name=false,$params=false,$load=true)
 	{
 		if(!$class)$class=$this->class;
@@ -432,9 +442,27 @@ final class core
 			}
 			else
 			{
-				if($params)return array_merge(array(),$this->config[$class]);
+				//конфиг загружается и хранится в таком виде (пример):
+				//	array(
+				//		"core"=>array(
+				//			"uriParseType"=>array(
+				//				"params"=>"CORE_URI_PARSE_LASTSECT",
+				//				"value"=>1
+				//			)
+				//  	)
+				//	)
+				//если аргумент $params == true, то отдаем конфиг в вышеуказанном виде
+				if($params)return $this->config[$class];
 				else
 				{
+					//если аргумент $params == false,
+					//то игнорируем в результатах ключ "params"
+					//т.е. вид конфига будет такой
+					//	array(
+					//		"core"=>array(
+					//			"uriParseType"=>1
+					//  	)
+					//	)
 					$cfg=array();
 					foreach($this->config[$class] as $name=>$val)
 					{
@@ -445,6 +473,7 @@ final class core
 				}
 			}
 		}
+		//ищем значение конкретного параметра $name
 		$par="";
 		$val="";
 		if(isset($this->config[$class][$name]))
@@ -460,10 +489,8 @@ final class core
 				return $this->config($class,$name,$params,false);
 			}
 		}
-		if($params)
-			return array($val,$par);
-		else
-			return $val;
+		if($params)return array($val,$par);
+		else return $val;
 	}
 
 	public function content($prop)

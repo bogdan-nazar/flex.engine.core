@@ -464,11 +464,7 @@ final class auth
 	{
 		if(self::$_runStep)return;
 		self::$_runStep++;
-		if(strpos(self::$class,"\\")!==false)
-		{
-			$cl=explode("\\",self::$class);
-			self::$class=$cl[count($cl)-1];
-		}
+		self::$class=array_pop(explode("\\",self::$class));
 		self::$c=_a::core();
 		self::_sessionRead();
 		if(!is_array(self::$user) || !count(self::$user) || !array_key_exists("id",self::$user))self::_userReset();
@@ -498,7 +494,6 @@ final class auth
 
 	public static function access($owner="core",$access="r",$entity="")
 	{
-		if(array_pop(explode("\\",@get_called_class()))!="module")return false;
 		if(self::$user["admn"])return true;
 		if(!$entity)return false;
 		return false;
