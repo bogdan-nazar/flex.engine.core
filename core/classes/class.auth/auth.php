@@ -464,7 +464,8 @@ final class auth
 	{
 		if(self::$_runStep)return;
 		self::$_runStep++;
-		self::$class=array_pop(explode("\\",self::$class));
+		$c=explode("\\",self::$class);
+		self::$class=array_pop($c);
 		self::$c=_a::core();
 		self::_sessionRead();
 		if(!is_array(self::$user) || !count(self::$user) || !array_key_exists("id",self::$user))self::_userReset();

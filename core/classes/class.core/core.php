@@ -251,32 +251,7 @@ final class core
 
 	private function _silentXStatusSend()
 	{
-		$gkey=FLEX_APP_OUT_STR."render-xkey";
-		$skey=FLEX_APP_OUT_STR."render-xrequest-";
-		$ckey=FLEX_APP_OUT_STR."render-xcb";
-		header("Content-Type: application/javascript");
-		if(!isset($_GET[$gkey]))
-		{
-			echo"console.log(\"Ошибка определения статуса операции: ключ [".$gkey."] не определен.\");";
-			return;
-		}
-		$key=$_GET[$gkey];
-		$seskey=$skey.$key;
-		if(!isset($_SESSION[$seskey]))
-		{
-			echo"console.log(\"Ошибка определения статуса операции: неизвестная операция \$_SESSION[".$seskey."] не определен.\");";
-			return;
-		}
-		if(!isset($_SESSION[$seskey]["data"]))$_SESSION[$seskey]["data"]="";
-		if(!isset($_GET[$ckey]))
-		{
-			echo"console.log(\"Ошибка отправки статуса операции: callback-функция \$_GET[".$ckey."] не определена. Статус: \");";
-			echo"console.log(\"".$_SESSION[$seskey]["data"]."\");";
-			return;
-		}
-		echo"".$_GET[$ckey]."(\"".$_SESSION[$seskey]["data"]."\",\"{$key}\");";
-		unset($_SESSION[$seskey]["data"]);
-		unset($_SESSION[$seskey]);
+		return render::silentXStatusSend();
 	}
 
 	/**
@@ -333,7 +308,7 @@ final class core
 				header("Location: http://".$_SERVER["HTTP_HOST"].$_SERVER["REQUEST_URI"]);
 				return;
 			case RENDER_TYPE_STATUS:
-				$this->_silentXStatusSend();
+				render::silentXResponseSend();
 				return;
 			default:
 				//переменные окружения
@@ -380,7 +355,8 @@ final class core
 		else
 		{
 			if(!is_object($class))return false;
-			$clname=array_pop(explode("\\",get_class($class)));
+			$c=explode("\\",get_class($class));
+			$clname=array_pop($c);
 		}
 		if(!is_array($data))return false;
 		if($core)
@@ -633,31 +609,14 @@ final class core
 		return render::silent();
 	}
 
-	public function silentXResponseSet($resp)
+	public function silentResponseSend($data,$isJson=true,$callback=false)
 	{
-		$resp=str_replace("\"","\\\"",$resp);
-		if(!isset($_REQUEST["render-action-key"]))
-		{
-			echo"
-			<script type=\"text/javascript\">\n
-			console.log(\"Can't save action result, action-key is not set. Response data:\n\");\n
-			console.log(\"".$resp."\");\n
-			</script>";
-			return false;
-		}
-		$key=$_REQUEST["render-action-key"];
-		if(!$key)
-		{
-			echo"
-			<script type=\"text/javascript\">\n
-			console.log(\"Can't save action result, action-key is empty. Response data:\n\");\n
-			console.log(\"".$resp."\");\n
-			</script>";
-			return false;
-		}
-		$_SESSION["render-xrequest-".$key]["data"]=$resp;
-		echo"<script type=\"text/javascript\">console.log(\"Action [".$key."] was processed.\");</script>";
-		return true;
+		render::silentResponseSend($data,$isJson,$callback);
+	}
+
+	public function silentXResponseSet($data,$isJson=true)
+	{
+		render::silentXResponseSet($data,$isJson);
 	}
 
 	public function template()

@@ -258,6 +258,8 @@ final class content
 
 	public static function pageByModMethod($mod,$method="")
 	{
+		$mod=db::esc($mod);
+		$method=db::esc($method);
 		$q="SELECT `c`.`alias` FROM ".db::tn("mods")." `m`
 		INNER JOIN ".db::tnm("render_binds")." `b` ON `b`.`mid`=`m`.`id`
 		INNER JOIN ".db::tnm("render_bind_adds")." `pb` ON `pb`.`bid`=`b`.`id`
@@ -680,7 +682,7 @@ final class content
 		return $recs;
 	}
 
-	public static function item($prop)
+	public static function item($prop="")
 	{
 		if(isset(self::$item[$prop]))
 			return self::$item[$prop];

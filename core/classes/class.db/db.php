@@ -308,8 +308,8 @@ final class db
 		$r=@mysql_query($q);
 		if($r===false)
 		{
-			$sql="SQL запрос: [".lib::jsonPrepare($q)."].";
-			$raw="Ответ MySQL: [".lib::jsonPrepare(@mysql_error(self::$db["link"]))."].";
+			$msgQuery="SQL string: [\n".$q."\n].";
+			$msgErr="MySQL message: [\n".mysql_error(self::$db["link"])."\n].";
 			if(@function_exists("error_log") || $die)
 			{
 				//сохраняем
@@ -319,22 +319,22 @@ final class db
 				if(!isset($debug["line"]))$debug["line"]="";
 				if(!$debug["class"] || !$debug["func"] || !$debug["line"])
 				{
-					if(@function_exists("debug_backtrace"))
+					if(function_exists("debug_backtrace"))
 					{
-						$dbg=@debug_backtrace();
+						$dbg=debug_backtrace();
 						if(!$debug["line"])$debug["line"]=$dbg[0]["line"];
-						@array_shift($dbg);
+						array_shift($dbg);
 						if(!$debug["class"])$debug["class"]=isset($dbg[0]["class"])?$dbg[0]["class"]:"";
 						if(!$debug["func"])$debug["func"]=isset($dbg[0]["function"])?$dbg[0]["function"]:"";
 					}
 				}
 				self::$lastError=$debug["msg"];
-				self::$lastErrorId=msgr::errorLog($debug["msg"],false,$debug["class"],$debug["func"],$debug["line"],$sql." ".$raw);
+				self::$lastErrorId=msgr::errorLog($debug["msg"],false,$debug["class"],$debug["func"],$debug["line"],$msgQuery."\n\n".$msgErr);
 				$ep="EP: [".($debug["class"]?($debug["class"]."::"):"").($debug["func"]?($debug["func"].">"):"").$debug["line"]."]";
-				if(@function_exists("error_log"))
+				if(function_exists("error_log"))
 				{
 					$amail=self::$c->config("","adminEmail");
-					if(lib::validEmail($amail,false))@error_log($debug["msg"]."\n\n".$sql."\n\n".$raw."\n\n".$ep,1,$amail);
+					if(lib::validEmail($amail,false))@error_log($debug["msg"]."\n\n".$msgQuery."\n\n".$msgErr."\n\n".$ep,1,$amail);
 				}
 				if($die)die($debug["msg"]."<br /><br />".$ep);
 			}

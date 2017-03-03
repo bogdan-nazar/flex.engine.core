@@ -17,6 +17,7 @@ final class render
 	private static $config		=	array();
 	private static $mods		=	array();
 	private static $session		=	array();
+	private static $silentSent	=	false;
 	private static $spots		=	array();
 	private static $spotsCur	=	array();
 	private static $styles		=	array();
@@ -222,15 +223,15 @@ final class render
 		if(!is_string($class))
 		{
 			if(!is_object($class))return false;
-			$cl=@explode("\\",@get_class($class));
-			$clname=@array_pop($cl);
+			$cl=explode("\\",get_class($class));
+			$clname=array_pop($cl);
 		}
 		if(!$name)$name=$class;
 		$style=array();
-		$style["http"]=(@strpos($name,"http")===0);
+		$style["http"]=(strpos($name,"http")===0);
 		$style["class"]=$class;
 		$style["name"]=$name;
-		if($name && (@strpos($name,"/")!==false))
+		if($name && (strpos($name,"/")!==false))
 		{
 			$style["admin"]="";
 			$style["core"]=false;
@@ -239,8 +240,8 @@ final class render
 		}
 		else
 		{
-			if(@method_exists(__NAMESPACE__."\\".$class,self::$c->modHookName("template")))
-				$tpl=@call_user_func_array(array(__NAMESPACE__."\\".$class,self::$c->modHookName("template")),array($class));
+			if(method_exists(__NAMESPACE__."\\".$class,self::$c->modHookName("template")))
+				$tpl=call_user_func_array(array(__NAMESPACE__."\\".$class,self::$c->modHookName("template")),array($class));
 			else $tpl=self::_config("template");
 			$style["admin"]=(@defined("ADMIN_MODE") && $admin)?"/admin":"";
 			$style["core"]=$core;
@@ -753,8 +754,8 @@ final class render
 		else
 		{
 			if(!is_object($class))return false;
-			$cl=@explode("\\",@get_class($class));
-			$clname=@array_pop($cl);
+			$cl=explode("\\",get_class($class));
+			$clname=array_pop($cl);
 		}
 		if($name && (@strpos($name,"http")===0))
 		{
@@ -860,6 +861,116 @@ final class render
 	public static function silent()
 	{
 		return (self::$type==RENDER_TYPE_SILENT);
+	}
+
+	public static function silentResponseSend($data,$isJson=true,$callback=false)
+	{
+		//проверки
+		if(self::$silentSent)return false;
+		if(!is_string($callback) || !$callback)$callback=false;
+		//если $data - это json, то делаем дополнительные проверки
+		if($isJson)
+		{
+			if(is_array($data))$data=lib::jsonMake($data,NULL,($callback?true:false),true);
+			else
+			{
+				//предполагается, что $data - валидно заэкранированная строка,
+				//содержащая json, т.е. переводы строки заменены \r\n, и в значениях
+				//заэкранированы символы [\] и ["]
+				if($callback)$data=lib::jsonEscape($data);
+			}
+		}
+		//задаем Content-Type и если нужно
+		//обворачиваем ответ в $callback (JSONP)
+		$ctype="text/html";
+		if($callback)
+		{
+			$data=$callback."(\"".$data."\");";
+			$ctype="application/javascript";
+		}
+		else
+		{
+			if($isJson)$ctype="application/json";
+		}
+		//отсылаем ответ
+		header("Content-Type: ".$ctype."; charset=utf-8");
+		echo $data;
+		self::$silentSent=true;
+	}
+
+	public static function silentXResponseSend()
+	{
+		$gkey=self::$class."-xkey";
+		$ckey=self::$class."-xcb";
+		$skey=FLEX_APP_NAME."-".self::$class."-xrequest-";
+		header("Content-Type: application/javascript; charset=utf-8");
+		if(!isset($_GET[$gkey]))
+		{
+			echo"console.log(\"Ошибка определения статуса операции: ключ [".$gkey."] не определен.\");";
+			return;
+		}
+		$key=$_GET[$gkey];
+		$seskey=$skey.$key;
+		if(!isset($_SESSION[$seskey]))
+		{
+			echo"console.log(\"Ошибка определения статуса операции: неизвестная операция \$_SESSION[".$seskey."] не определен.\");";
+			return;
+		}
+		if(!is_array($_SESSION[$seskey]))
+		{
+			$_SESSION[$seskey]=array();
+			$_SESSION[$seskey]["data"]="";
+		}
+		$rkey=FLEX_APP_NAME."-".self::$class."-xrequests";
+		if(!isset($_GET[$ckey]))
+		{
+			echo"console.log(\"Ошибка отправки статуса операции: callback-функция \$_GET[".$ckey."] не определена. Статус: \");";
+			echo"console.log(\"".$_SESSION[$seskey]["data"]."\");";
+			unset($_SESSION[$seskey]);
+			if(isset($_SESSION[$rkey]))unset($_SESSION[$rkey]);
+			return;
+		}
+		echo"".$_GET[$ckey]."(\"".$_SESSION[$seskey]["data"]."\",\"{$key}\");";
+		unset($_SESSION[$seskey]);
+		if(isset($_SESSION[$rkey]))unset($_SESSION[$rkey]);
+	}
+
+	public static function silentXResponseSet($data,$isJson=true)
+	{
+		$resp=str_replace("\"","\\\"",$data);
+		if(!isset($_REQUEST["render-action-key"]))
+		{
+			echo"
+			<script type=\"text/javascript\">\n
+				console.log(\"Can't save action result, action-key is not set. Response data:\n\");\n
+				console.log(\"".$resp."\");\n
+			</script>";
+			return false;
+		}
+		$key=$_REQUEST["render-action-key"];
+		if(!$key)
+		{
+			echo"
+			<script type=\"text/javascript\">\n
+			console.log(\"Can't save action result, action-key is empty. Response data:\n\");\n
+			console.log(\"".$resp."\");\n
+			</script>";
+			return false;
+		}
+		$skey=FLEX_APP_NAME."-".self::$class."-xrequest-".$key;
+		$rkey=FLEX_APP_NAME."-".self::$class."-xrequests";
+		$sresp=array(
+			"data"	=> $data,
+			"key"	=> $key,
+			"time"	=> time()
+		);
+		$_SESSION[$skey]=&sresp();
+		//запоминааем также ключ, чтоб если возникнет ошибка на клиенте,
+		//можно было удалить "зависший" ответ из сессии
+		if(!isset($_SESSION[$rkey]))$_SESSION[$rkey]=array();
+		$_SESSION[$rkey][$key]=true;
+		echo"<script type=\"text/javascript\">console.log(\"Action [".$key."] was processed.\");</script>";
+		return true;
 	}
 
 	public static function template()

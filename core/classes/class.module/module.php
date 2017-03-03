@@ -13,7 +13,8 @@ class module
 
 	final private static function _iClass($class)
 	{
-		return array_pop(explode("\\",$class));
+		$c=explode("\\",$class);
+		return array_pop($c);
 	}
 
 	final private static function _iGet($class,$set=true,$clChk=true)
@@ -48,9 +49,8 @@ class module
 		return self::$__isadmin;
 	}
 
-	final private static function _session($par="",$do="get",$data)
+	final private static function _session($par="",$do="get",$data=NULL)
 	{
-		if(!self::$__ic)return;
 		if($par==="")
 		{
 			if(!self::_isAdmn())return self::$__ic->__session;
@@ -58,39 +58,33 @@ class module
 		}
 		if(self::_isAdmn())
 		{
-			if($par===false)
-			{
-				self::$__ic->__sessionAdmin=array();
-				return;
-			}
-			if($do=="get")
-			{
-				if(isset(self::$__ic->__sessionAdmin[$par]))return self::$__ic->__sessionAdmin[$par];
-				else return"";
-			}
-			else
-			{
-				if(!isset($data))return;
-				self::$__ic->__sessionAdmin[$par]=$data;
-			}
+			$ses=&self::$__ic->__sessionAdmin;
 		}
 		else
 		{
-			if($par===false)
+			$ses=&self::$__ic->__session;
+		}
+		if($par===false)
+		{
+			$ses=array();
+			return;
+		}
+		if($do=="get")
+		{
+			if($par=="config")return self::config($par);
+			if(isset($ses[$par]))return $ses[$par];
+			else return"";
+		}
+		//"set"
+		else
+		{
+			if($par=="config")
 			{
-				self::$__ic->__session=array();
-				return;
+				self::msgAdd("Can't save config data directly into session.",MSGR_TYPE_ERR,true);
+				return false;
 			}
-			if($do=="get")
-			{
-				if(isset(self::$__ic->__session[$par]))return self::$__session[$par];
-				else return"";
-			}
-			else
-			{
-				if(!isset($data))return;
-				self::$__ic->__session[$par]=$data;
-			}
+			if(is_null($data))return false;
+			$ses[$par]=$data;
 		}
 	}
 
@@ -244,6 +238,41 @@ class module
 		return lib::validDtRus($dt);
 	}
 
+	final protected static function lastErr()
+	{
+		return msgr::errorGet();
+	}
+
+	final protected static function lastMsg()
+	{
+		return msgr::lastMsg();
+	}
+
+	final protected static function libJsonMake($data,$forceObj=NULL,$escape=false,$quoted=true)
+	{
+		return lib::jsonMake($data,$forceObj,$escape,$quoted);
+	}
+
+	final protected static function libLastMsg()
+	{
+		return lib::lastMsg();
+	}
+
+	final protected static function libValidEmail($email="",$allow_empty=false)
+	{
+		return lib::validEmail($email,$allow_empty);
+	}
+
+	final protected static function libValidStr($str,$type,$ignoreEmpty=false,$minLen=-1,$maxLen=-1,$needMsg=false,$fldName="[?]")
+	{
+		return lib::validStr($str,$type,$ignoreEmpty,$minLen,$maxLen,$needMsg,$fldName);
+	}
+
+	final protected static function mailSend($mt,$ms,$mb,$mf=false,$fname="")
+	{
+		return msgr::mailSend($mt,$ms,$mb,$mf,$fname);
+	}
+
 	final protected static function mediaFetch($id,$childs=true)
 	{
 		return media::fetch($id,$childs);
@@ -276,6 +305,16 @@ class module
 		return media::lastMsg();
 	}
 
+	final protected static function modHookName($hookName)
+	{
+		return self::$__c->modHookName($hookName);
+	}
+
+	final protected static function modId($class,$forceDb=false)
+	{
+		return self::$__c->modId($class,$forceDb);
+	}
+
 	final protected static function mquotes_gpc()
 	{
 		return lib::mquotes_gpc();
@@ -291,14 +330,35 @@ class module
 		msgr::add($msg,$msgType,$msgShow);
 	}
 
+	final protected static function page($prop="")
+	{
+		return content::item($prop);
+	}
+
+	final protected static function pageByModMethod($method="",$mod="")
+	{
+		if(!$mod)$mod=self::_iClass(@get_called_class());
+		return content::pageByModMethod($mod,$method);
+	}
+
 	final protected static function pageIndex()
 	{
 		return content::pageIndex();
 	}
 
+	final protected static function path($prop="")
+	{
+		return self::$__c->path($prop);
+	}
+
 	final protected static function post($var)
 	{
 		return self::$__c->post($var);
+	}
+
+	final protected static function posted($var)
+	{
+		return self::$__c->posted($var);
 	}
 
 	final protected static function q($q,$die=false,$debug=array("msg"=>"Ошибка выполнения запроса к БД."))
@@ -315,9 +375,53 @@ class module
 		return db::fetch($r,$a);
 	}
 
+	final protected static function resourceScriptAdd($name="",$core=false,$admin=false)
+	{
+		if(self::$__silent)return false;
+		$class=@get_called_class();
+		if(!self::_iGet($class))return false;
+		return render::addScript(self::$__ic->__instance,$name,false,self::_isAdmn());
+	}
+
+	final protected static function resourceStyleAdd($name="",$core=false,$admin=false)
+	{
+		if(self::$__silent)return false;
+		$class=@get_called_class();
+		if(!self::_iGet($class))return false;
+		return render::addStyle(self::$__ic->__instance,$name,false,self::_isAdmn());
+	}
+
+	final private static function sessionEmpty()
+	{
+		if(!self::_iGet(@get_called_class()))return;
+		return self::_session(false);
+	}
+
+	final private static function sessionGet($par="")
+	{
+		if(!self::_iGet(@get_called_class()))return;
+		return self::_session($par);
+	}
+
+	final private static function sessionSet($par,$data=NULL)
+	{
+		if(!self::_iGet(@get_called_class()))return;
+		return self::_session($par,"set",$data);
+	}
+
 	final protected static function silent()
 	{
 		return self::$__silent;
+	}
+
+	final protected static function silentResponseSend($data,$isJson=true,$callback=false)
+	{
+		return self::$__c->silentResponseSend($data,$isJson,$callback);
+	}
+
+	final protected static function silentXResponseSet($data,$isJson=true)
+	{
+		return self::$__c->silentXResponseSet($data,$isJson);
 	}
 
 	final protected static function tb($name)
@@ -365,6 +469,11 @@ class module
 		return tpl::get($class,$tplSection,$tplFile,$useTemplatesSet);
 	}
 
+	final protected static function user($par="")
+	{
+		return auth::user($par);
+	}
+
 	final public static function __attach()
 	{
 		if(!self::$__c)
@@ -373,97 +482,6 @@ class module
 			self::$__silent=self::$__c->silent();
 			self::$__isadmin=defined("ADMIN_MODE") && auth::admin();
 			self::$__inited=true;
-		}
-	}
-
-	final public static function __callStatic($name,$arguments=array())
-	{
-		$class=@get_called_class();
-		if(!self::_iGet($class))return;
-		$done=false;
-		if(@method_exists(__NAMESPACE__."\\".__CLASS__,"_".$name))
-		{
-			$method=new \ReflectionMethod(__NAMESPACE__."\\".__CLASS__,"_".$name);
-			if($method->isPublic())
-			{
-				@call_user_func_array(array(self,"_".$name),$arguments);
-				$done=true;
-			}
-		}
-		if(!$done)
-		{
-			switch($name)
-			{
-				case "lastErr":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."msgr","errorGet"),$arguments);
-				case "lastMsg":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."msgr",$name),$arguments);
-				case "libJsonMake":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."lib","jsonMake"),$arguments);
-				case "libJsonPrepare":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."lib","jsonPrepare"),$arguments);
-				case "libLastMsg":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."lib","lastMsg"),$arguments);
-				case "libValidEmail":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."lib","validEmail"),$arguments);
-				case "libValidStr":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."lib","validStr"),$arguments);
-				case "mailSend":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."msgr",$name),$arguments);
-				case "modHookName":
-					return @call_user_func_array(array(self::$__c,$name),$arguments);
-				case "modId":
-					return @call_user_func_array(array(self::$__c,$name),$arguments);
-				case "path":
-					return @call_user_func_array(array(self::$__c,"path"),$arguments);
-				case "page":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."content","item"),$arguments);
-				case "pageByModMethod":
-					array_unshift($arguments,self::$__ic->__instance);
-					return @call_user_func_array(array(__NAMESPACE__."\\"."content",$name),$arguments);
-				case "posted":
-					return @call_user_func_array(array(self::$__c,$name),$arguments);
-				case "resourceScriptAdd":
-					if(self::$__silent)return;
-					array_unshift($arguments,self::$__ic->__instance);
-					if(self::_isAdmn())
-					{
-						$l=count($arguments);
-						if($l==2)array_push($arguments,"",false,true);
-						if($l==3)array_push($arguments,false,true);
-						if($l==4)array_push($arguments,true);
-					}
-					return @call_user_func_array(array(__NAMESPACE__."\\"."render","addScript"),$arguments);
-				case "resourceStyleAdd":
-					if(self::$__silent)return;
-					array_unshift($arguments,self::$__ic->__instance);
-					if(self::_isAdmn())
-					{
-						$l=count($arguments);
-						if($l==2)array_push($arguments,"",false,true);
-						if($l==3)array_push($arguments,false,true);
-						if($l==4)array_push($arguments,true);
-					}
-					return @call_user_func_array(array(__NAMESPACE__."\\"."render","addStyle"),$arguments);
-				case "sessionEmpty":
-					self::_session(false);
-					break;
-				case "sessionGet":
-					if(!count($arguments)){
-						$s=self::_session();
-						return $s;
-					}
-					return self::_session($arguments[0]);
-				case "sessionSet":
-					if(count($arguments)!=2)return"";
-					return self::_session($arguments[0],"set",$arguments[1]);
-				case "silentXResponseSet":
-					return @call_user_func_array(array(self::$__c,"silentXResponseSet"),$arguments);
-				case "user":
-					return @call_user_func_array(array(__NAMESPACE__."\\"."auth","user"),$arguments);
-				default:
-					throw new \Exception("Fatal error: unknown method requested by [".self::$__ic->__instance."::".$name."].");
-			}
 		}
 	}
 

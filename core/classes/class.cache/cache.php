@@ -19,7 +19,8 @@ final class cache
 	{
 		if(self::$_runStep)return;
 		self::$_runStep++;
-		self::$class=array_pop(explode("\\",self::$class));
+		$c=explode("\\",self::$class);
+		self::$class=array_pop($c);
 		self::$c=_a::core();
 		self::$dir=FLEX_APP_DIR_DAT."/_".self::$class;
 		if(!@file_exists(self::$dir))@mkdir(self::$dir,0755,true);

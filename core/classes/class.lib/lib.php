@@ -104,25 +104,57 @@ final class lib
 	/**
 	* Конвертация массива в JSON-объект
 	*
-	* @param array $i
-	* @param bool $forceObject
+	* @param array $data - конвертируемые данные
+	* @param boolean $forceObject - превращать все массивы в объекты принудительно
+	* @param boolean $escape - если true - подготовить JSON для inline-вывода (экранировать спецсимволы)
+	* @param boolean $forceObject - если true - экранировать еще раз раз для использования в eval()
 	*
 	* @return string $json
 	*/
-	public static function jsonMake($a,$forceObj=false)
+	public static function jsonMake($data,$forceObj=NULL,$escape=false,$quoted=true)
 	{
-		if(!is_array($a))return"[]";
+		if(!is_array($data))return"[]";
 		$res=array();
-		if(!$forceObj)
+		//пытаемся автоматически распознать ассоциативный массив
+		if(is_null($forceObj))
 		{
-			$keys=array_keys($a);
+			//проверяем, все ли ключи целочисленные
+			$keys=array_keys($data);
 			foreach($keys as $key)
 				if(!is_int($key))
 				{
 					$forceObj=true;
 					break;
 				}
+			//если все ключи целочисленные,
+			//то проверяем их непрерывность
+			if(is_null($forceObj))
+			{
+				$l=count($keys);
+				for($c=0;$c<$l;$c++)
+				{
+					if($c!==$keys[$c])
+					{
+						$forceObj=true;
+						break;
+					}
+				}
+			}
+			if(is_null($forceObj))$forceObj=false;
 		}
+		//пытаемся использовать нативную функцию
+		if(function_exists("json_encode") && (!$forceObj || defined("JSON_FORCE_OBJECT")))
+		{
+			$flags=0;
+			if(defined("JSON_UNESCAPED_UNICODE"))$flags=$flags | JSON_UNESCAPED_UNICODE;
+			if(defined("JSON_UNESCAPED_SLASHES"))$flags=$flags | JSON_UNESCAPED_SLASHES;
+			if(defined("JSON_PRESERVE_ZERO_FRACTION"))$flags=$flags | JSON_PRESERVE_ZERO_FRACTION;
+			if($forceObj)$flags=$flags | JSON_FORCE_OBJECT;
+			$res=json_encode($data,$flags);
+			if($escape)$res=self::jsonEscape($res,$quoted);
+			return $res;
+		}
+		//либо используем свой аогоритм
 		if($forceObj)
 		{
 			$sq1="{";
@@ -133,7 +165,8 @@ final class lib
 			$sq1="[";
 			$sq2="]";
 		}
-		foreach($a as $key=>$val)
+		//кодируем
+		foreach($data as $key=>$val)
 		{
 			$tp=gettype($val);
 			switch($tp)
@@ -142,12 +175,25 @@ final class lib
 					$val=$val?"true":"false";
 					break;
 				case "string":
-					$val="\"".self::jsonPrepare($val)."\"";
+					//экранируем слеши и кавычки
+					$val=preg_replace("/(\\\\)/","\\\\$1",$val);
+					$val=preg_replace("/(\")/","\\\\$1",$val);
+					//заменяем перевод строки и возврат каретки
+					$val=preg_replace("/\r\n/im","\\\\r\\\\n",$val);
+					$val=preg_replace("/\n\r/im","\\\\n\\\\r",$val);
+					$val=preg_replace("/\r/im","\\\\r",$val);
+					$val=preg_replace("/\n/im","\\\\n",$val);
+					$val="\"".$val."\"";
+					if($escape)$val=self::jsonEscape($val,$quoted);
 					break;
 				case "array":
-					$val=self::jsonMake($val,$forceObj);
+					$val=self::jsonMake($val,$forceObj,$escape,$quoted);
 					break;
-				default:
+				case "object":
+				case "resource":
+				case "NULL":
+				case "unknown type":
+					continue;
 			}
 			$res[]=($forceObj?("\"".$key."\":"):"").$val;
 		}
@@ -155,18 +201,30 @@ final class lib
 	}
 
 	/**
-	* Подготовка строки для использования в JSON
+	* Функция дополнительно экранирует спецсимволы для прямого вывода
+	* json-объекта в текст скрипта и для использования в eval() ()
+	* с использовании json-строки, детермнированной двойными кавычками,
+	* например:
+	* 	var s = eval("({data: " + <?=$jsonStr?> + "})"); //инициализация с помощью eval()
+	*	var s = <?=$jsonStr?>; //прямая инициализация в клиентском коде
 	*
-	* @param string $s
-	*
-	* @return string $jsonString
+	* @param string $s - json-строка
+	* @param boolean $quoted - тип вывода в текст скрипта
 	*/
-	public static function jsonPrepare($s)
+	public static function jsonEscape($s,$quoted=true)
 	{
-		$s=preg_replace("/[\r\n\t]/im"," ",$s);
-		$s=preg_replace("/[ ]+/"," ",$s);
-		$s=str_replace("\\","\\\\",$s);
-		$s=str_replace("\"","\\\"",$s);
+		//обратный слеш в регулярных выражениях
+		//кодируется 4-мя обратными слешами
+
+		//экранируем в значениях обратные слеши, кавычки и символы управления строками
+		if($quoted)
+		{
+			$s=preg_replace("/(\\\\\\\\)/","\\\\\\\\$1",$s);
+			$s=preg_replace("/(\\\\\")/","\\\\\\\\$1",$s);
+		}
+		$s=preg_replace("/(?|(\\\\r)|(\\\\n))/","\\\\$1",$s);
+		//заменяем кавычки, детерминирующие строки
+		if($quoted)$s=preg_replace("/(?:^|([^\\\\]+))\"/im","$1\\\\\"",$s);
 		return $s;
 	}
 
@@ -575,7 +633,7 @@ final class lib
 		}
 		if(function_exists("filter_var"))
 		{
-			if(!filter_var($email, FILTER_VALIDATE_EMAIL))//php 5.0.2
+			if(!filter_var($email,FILTER_VALIDATE_EMAIL))//php 5.0.2
 			{
 				self::$lastMsg=$msg;
 				return false;

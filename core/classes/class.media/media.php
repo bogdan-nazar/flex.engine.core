@@ -421,7 +421,10 @@ final class media
 		$r=db::q($q,false);
 		if($r===false)
 		{
-			$msg=lib::jsonPrepare(db::lastError());
+			$msg=db::lastError()."\"";
+			$msg=str_replace("\r\n"," ",$msg);
+			$msg=preg_replace("/\\s+/m"," ",$msg);
+			$msg=str_replace("\"","\\\"",$msg);
 			$res.="false,msg:\"Ошибка выполнения запроса [".__LINE__."]\",debug:{mysql_error:\"".$msg."\"}}";
 			echo $res;
 			return;
@@ -772,18 +775,8 @@ final class media
 		$r=db::q($q,false);
 		if($r===false)
 		{
-			self::$lastMsg="Ошибка операции с базой данных";
-			if($err_json)
-			{
-				$sqlerr=lib::jsonPrepare(db::lastError());
-				$sqlstr=lib::jsonPrepare($q);
-				$err="{error:\"".$sqlerr."\",query:\"".$sqlstr."\"}";
-			}
-			else
-			{
-				$err="Текст ошибки:<br />".db::lastError().",<br /><br /> Запрос:<br />".$q;
-			}
-			return msgr::errorLog($err,false,self::$class,__FUNCTION__,__LINE__);
+			self::$lastMsg="Ошибка операции с базой данных.";
+			return msgr::errorLast();
 		}
 		$childs=array();
 		$ids=array();
@@ -1569,7 +1562,7 @@ final class media
 						$msg="Неизвестная ошибка: буферный объект не создан [srcImg]";
 						self::$lastMsg=$msg;
 						if($err_json)
-							$msg="{msg:\"".lib::jsonPrepare($msg)."\",function:\"".__FUNCTION__."\",line:".__LINE__."}";
+							$msg="{msg:\"".$msg."\",function:\"".__FUNCTION__."\",line:".__LINE__."}";
 						return msgr::errorLog($msg,false,self::$class,__FUNCTION__,__LINE__);
 					}
 					$srcImg1=@imagecreatetruecolor($newW,$newH);

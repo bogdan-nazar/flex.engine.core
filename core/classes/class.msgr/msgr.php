@@ -219,7 +219,10 @@ final class msgr
 		{
 			if($count>$qlen)$count=$qlen;
 			if($start==-1)$start=$qlen-1;
-			if($start<0 || ($start>($qlen-1)))$start=$qlen-1;
+			else
+			{
+				if($start<0 || ($start>($qlen-1)))$start=$qlen-1;
+			}
 			$rarr=array();
 			$fetched=0;
 			for($cnt=$start;$cnt<$qlen;$cnt++)
@@ -250,6 +253,14 @@ final class msgr
 			if(!$fetched)return self::$errorMsg;
 			else return $rarr;
 		}
+	}
+
+	/**
+	* Возвращает индекс последней ошибки
+	*/
+	public static function errorLast()
+	{
+		return count(self::$errorsQueue)-1;
 	}
 
 	/**
@@ -301,15 +312,16 @@ final class msgr
 			if(!$func)$class="unknown function";
 			if(!$line)$class="no line";
 		}
+		$error=array();
+		$error["class"]=$class;
+		$error["func"]=$func;
+		$error["line"]=$line;
+		$error["msg"]=$msg;
+		$error["ext"]=$ext;
 		if(!isset(self::$errors[$class]))self::$errors[$class]=array();
 		$l=count(self::$errors[$class]);
-		self::$errors[$class][$l]=array();
-		self::$errors[$class][$l]["class"]=$class;
-		self::$errors[$class][$l]["func"]=$func;
-		self::$errors[$class][$l]["line"]=$line;
-		self::$errors[$class][$l]["msg"]=$msg;
-		self::$errors[$class][$l]["ext"]=$ext;
-		self::$errorsQueue[]=self::$errors[$class][$l];
+		self::$errors[$class][]=&$error;
+		self::$errorsQueue[]=&$error;
 		return (count(self::$errorsQueue)-1);
 	}
 

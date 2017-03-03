@@ -1,7 +1,7 @@
 <?
 namespace FlexEngine;
 defined("FLEX_APP") or die("Forbidden.");
-define("FLEX_APP_NAME","flexengine",false);
+define("FLEX_APP_NAME","flex-engine",false);
 include FLEX_APP_DIR."/const.php";
 /* ---->>> development mode helper ---- */
 if(FLEX_APP_DIR_SRC && isset($_GET["feh-rsc-get"]))
