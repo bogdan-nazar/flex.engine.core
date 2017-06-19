@@ -102,7 +102,7 @@ final class content
 					//в именах секций браузер не пропускает также .#%&
 					if(preg_match("/[',;@\s".$pregq."]+/",$sect))continue;
 					//на всякий случай эскейпим
-					$nsects[]=mysql_real_escape_string($sect);
+					$nsects[]=db::esc($sect);
 				}
 				$sects=$nsects;
 			}
@@ -111,7 +111,7 @@ final class content
 		{
 			$r=db::q("SELECT DISTINCT * FROM ".db::tnm(self::$class)." WHERE `alias` IN ('".implode("','",$sects)."') AND `act`=1",true);
 			$found=array();
-			while($rec=mysql_fetch_assoc($r))$found[$rec["alias"]]=$rec;
+			while($rec=db::fetch($r))$found[$rec["alias"]]=$rec;
 			if(!count($found))return;
 			$len=count($sects);
 			if(self::$c->config("","uriParseType",false)==CORE_URI_PARSE_FIRSTSECT)
@@ -266,7 +266,7 @@ final class content
 		INNER JOIN ".db::tnm(self::$class)." `c` ON `c`.`id`=`pb`.`cid`
 		WHERE `m`.`class`='{$mod}' AND `b`.`pages`='none' AND `b`.`method`='{$method}'";
 		$r=db::q($q,true);
-		$rec=mysql_fetch_row($r);
+		$rec=db::fetch($r,"r");
 		if($rec)return $rec[0];
 		else
 		{
@@ -278,7 +278,7 @@ final class content
 				INNER JOIN ".db::tnm(self::$class)." `c` ON `c`.`id`=`pb`.`cid`
 				WHERE `m`.`class`='{$mod}' AND `b`.`pages`='none' AND (`b`.`method`='' OR `b`.`method` LIKE 'tpl:%')";
 				$r=db::q($q,true);
-				$rec=mysql_fetch_row($r);
+				$rec=db::fetch($r,"r");
 				if($rec)return $rec[0];
 			}
 		}
@@ -350,9 +350,9 @@ final class content
 				}
 				if($uniq)
 				{
-					$r=db::q("SELECT `id` FROM ".db::tnm(self::$class)." WHERE `alias`='".@mysql_real_escape_string($value)."'".($cid?(" AND `id`!=".$cid):""),!$sl);
+					$r=db::q("SELECT `id` FROM ".db::tnm(self::$class)." WHERE `alias`='".db::esc($value)."'".($cid?(" AND `id`!=".$cid):""),!$sl);
 					if($r===false)return false;
-					$rec=@mysql_fetch_row($r);
+					$rec=db::fetch($r,"r");
 					if($rec!==false)
 					{
 						$msg="Указанный алиас [".$value."] уже используется.";
@@ -404,7 +404,7 @@ final class content
 		if($r===false)return 0;
 		else
 		{
-			$rec=@mysql_fetch_assoc($r);
+			$rec=db::fetch($r);
 			return(0+$rec["cnt"]);
 		}
 	}
@@ -477,7 +477,7 @@ final class content
 			if(($t[$field]["type"]=="string") || ($t[$field]["type"]=="text"))
 			{
 				$value="".$value;
-				$t[$field]["data"]="'".mysql_real_escape_string($value)."'";
+				$t[$field]["data"]="'".db::esc($value)."'";
 			}
 			else $t[$field]["data"]="".$value;
 		}
@@ -543,7 +543,7 @@ final class content
 		}
 		$r=db::q("INSERT INTO ".db::tnm(self::$class)." VALUES(".implode(",",$d).")",!$sl);
 		if($r===false)return false;
-		$id=0+mysql_insert_id();
+		$id=0+db::iid();
 		if($data)
 		{
 			//проверяем доступ на запись файла страницы
@@ -667,7 +667,7 @@ final class content
 		if($r===false)return false;
 		$recs=array();
 		$mqrt=lib::mquotes_runtime();
-		while($rec=@mysql_fetch_assoc($r))
+		while($rec=db::fetch($r))
 		{
 			if(isset($rec["id"]))$rec["id"]=0+$rec["id"];
 			if(isset($rec["act"]))$rec["act"]=0+$rec["act"];
@@ -811,7 +811,7 @@ final class content
 		//кол-во затрагиваемых страниц
 		$r=db::q("SELECT COUNT(`id`) AS `cnt` FROM ".db::tnm(self::$class).($fts?(" WHERE ".$fts):""),!$sl);
 		if($r===false)return false;
-		$rec=mysql_fetch_row($r);
+		$rec=db::fetch($r,"r");
 		$affected=0+$rec[0];
 		if(!$affected)
 		{
@@ -836,7 +836,7 @@ final class content
 				{
 					$r=db::q("SELECT COUNT(`id`) AS `cnt` FROM ".db::tnm(self::$class)." WHERE ".($fts?($fts." AND "):"")."`act`=1",!$sl);
 					if($r===false)return false;
-					$rec=mysql_fetch_row($r);
+					$rec=db::fetch($r,"r");
 					if((0+$rec[0])>0)
 					{
 						if($affected==1)$msg="Невозможно выполнить операцию: невозможно очистить алиас для активной страницы.";
@@ -849,9 +849,9 @@ final class content
 			else
 			{
 				//если страница одна, проверяем алиас на уникальность
-				$r=db::q("SELECT COUNT(`id`) AS `cnt` FROM ".db::tnm(self::$class)." WHERE ".($fts?(" NOT (".$fts.") AND "):"")."`alias`='".mysql_real_escape_string($values["alias"])."'",!$sl);
+				$r=db::q("SELECT COUNT(`id`) AS `cnt` FROM ".db::tnm(self::$class)." WHERE ".($fts?(" NOT (".$fts.") AND "):"")."`alias`='".db::esc($values["alias"])."'",!$sl);
 				if($r===false)return false;
-				$rec=mysql_fetch_row($r);
+				$rec=db::fetch($r,"r");
 				if((0+$rec[0])>1)
 				{
 					$msg="Невозможно выполнить операцию: указанный алиас уже используется.";
@@ -868,7 +868,7 @@ final class content
 				{
 					$r=db::q("SELECT COUNT(`id`) AS `cnt` FROM ".db::tnm(self::$class)." WHERE ".($fts?($fts." AND "):"")."`alias`=''",!$sl);
 					if($r===false)return false;
-					$rec=mysql_fetch_row($r);
+					$rec=db::fetch($r,"r");
 					if((0+$rec[0])>0)
 					{
 						if($affected==1)$msg="Невозможно выполнить операцию: попытка активировать страницу с отсутствующим алиасом.";
@@ -906,7 +906,7 @@ final class content
 		}
 		$r=db::q("UPDATE ".db::tnm(self::$class)." SET `uuid`=".$uid.", `updated`=NOW()".($dts?(", ".$dts):"").($fts?(" WHERE ".$fts):""),!$sl);
 		if($r===false)return false;
-		$c=0+mysql_affected_rows();
+		$c=0+db::affected();
 		if($data)
 		{
 			$fn=$mdir."/".$filterId;

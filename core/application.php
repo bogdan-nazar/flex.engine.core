@@ -1,5 +1,11 @@
 <?
 namespace FlexEngine;
+ini_set("magic_quotes_runtime",0);
+ini_set("magic_quotes_gpc",0);
+ini_set("display_errors",1);
+error_reporting(E_ALL);
+date_default_timezone_set("Europe/Moscow");
+
 defined("FLEX_APP") or die("Forbidden.");
 define("FLEX_APP_NAME","flex-engine",false);
 include FLEX_APP_DIR."/const.php";
@@ -11,7 +17,7 @@ if(FLEX_APP_DIR_SRC && isset($_GET["feh-rsc-get"]))
 	$path=isset($_GET["path"])?$_GET["path"]:"";
 	if($path)
 	{
-		$query=parse_url($path);
+		$query=parse_url($path,PHP_URL_QUERY);
 		$query=$query["query"];
 		$path=pathinfo($path);
 	}
@@ -85,11 +91,6 @@ if(isset($_GET["fe-app-restart"])) // && ($_GET["fe-app-restart"]==session_id())
 }
 if(!isset($_SESSION["FLEX_APP_STARTED"]))$_SESSION["FLEX_APP_STARTED"]=microtime(true);
 $_SESSION["FLEX_APP_RENEWED"]=microtime(true);
-ini_set("magic_quotes_runtime",0);
-ini_set("magic_quotes_gpc",0);
-ini_set("display_errors","On");
-error_reporting(E_ALL);
-date_default_timezone_set("Europe/Moscow");
 final class _a
 {
 	private static $c	= NULL;

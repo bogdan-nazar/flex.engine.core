@@ -176,7 +176,7 @@ final class auth
 				else
 				{
 					$log=true;
-					self::$user=db::fetch($r);
+					self::$user=$row;
 					self::$user["id"]=0+self::$user["id"];
 					self::$user["stat"]=0+self::$user["stat"];
 					self::$user["admn"]=@substr(self::$user["rights"],0,1)==="1";

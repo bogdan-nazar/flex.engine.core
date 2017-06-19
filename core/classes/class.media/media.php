@@ -136,7 +136,7 @@ final class media
 			echo $res."false,msg:\"Ошибка операции с базой данных [".__LINE__."]\"}";
 			return;
 		}
-		$rec=@mysql_fetch_assoc($r);
+		$rec=db::fetch($r);
 		if(!$rec)
 		{
 			echo $res."false,msg:\"Невозможно выполнить операцию: нет доступа или изображение не зарегистрировано\"}";
@@ -180,7 +180,7 @@ final class media
 			echo $res."false,msg:\"Ошибка операции с базой данных [".__LINE__."]\"}";
 			return;
 		}
-		$iid=0+mysql_insert_id();
+		$iid=0+db::iid();
 		$im=$dir."/".$iid.($name?($sizeDelim.$newName):"").($nameSized?($sizeDelim.$sw."x".$sh):"").".".$ext;
 		//проверка доступа на запись
 		if(@file_exists($im))
@@ -189,7 +189,7 @@ final class media
 			if(@file_exists($im))
 			{
 				echo $res."res:false,msg:\"Ошибка: невозможно создать файл [".$im."], доступ на запись ограничен [".__LINE__."]\"}";
-	 			@mysql_query("DELETE FROM ".db::tnm(self::$class)." WHERE `id`={$iid}");
+	 			db::q("DELETE FROM ".db::tnm(self::$class)." WHERE `id`={$iid}",false);
 	 			return;
 			}
 		}
@@ -199,7 +199,7 @@ final class media
 			if(!@is_writable($im))
 			{
 				echo $res."false,msg:\"Ошибка: невозможно создать файл [".$im."], доступ на запись ограничен [".__LINE__."]\"}";
-	 			@mysql_query("DELETE FROM ".db::tnm(self::$class)." WHERE `id`={$iid}");
+	 			db::q("DELETE FROM ".db::tnm(self::$class)." WHERE `id`={$iid}",false);
 	 			return;
 			}
 			@unlink($im);
@@ -207,7 +207,7 @@ final class media
 		if(!self::_resample($imo,$im,MEDIA_IRES_CROP,array("srcRect"=>array($x,$y,$w,$h),"dstRect"=>array($sw,$sh))))
 		{
 			echo $res."res:false,msg:\"Невозможно выполнить операцию: ошибка изменения размера изображения [".__LINE__."]\"}";
- 			@mysql_query("DELETE FROM ".db::tnm(self::$class)." WHERE `id`={$iid}");
+ 			db::q("DELETE FROM ".db::tnm(self::$class)." WHERE `id`={$iid}",false);
  			return;
 		}
 		db::q("UPDATE ".db::tnm(self::$class)." SET `bytes`=".(0+@filesize($im))." WHERE `id`=".$iid,false);
@@ -284,7 +284,7 @@ final class media
 			echo $res."false,msg:\"Ошибка операции с базой данных [".__LINE__."]\"}";
 			return;
 		}
-		$rec=@mysql_fetch_assoc($r);
+		$rec=db::fetch($r);
 		if(!$rec)
 		{
 			echo $res."false,msg:\"Невозможно выполнить операцию: нет доступа или изображение не зарегистрировано\"}";
@@ -328,8 +328,8 @@ final class media
 				return;
 			}
 		}
-		$q="UPDATE ".db::tnm(self::$class)." SET `name`='".mysql_real_escape_string($name)."',`title`='".mysql_real_escape_string($title)."',
-		`credit`='".mysql_real_escape_string($credit)."', `name_id`=".$name_id.",`name_sized`=".$name_sized."
+		$q="UPDATE ".db::tnm(self::$class)." SET `name`='".db::esc($name)."',`title`='".db::esc($title)."',
+		`credit`='".db::esc($credit)."', `name_id`=".$name_id.",`name_sized`=".$name_sized."
 		WHERE `id`=".$id;
 		$r=db::q($q,false);
 		if($r===false)
@@ -379,7 +379,7 @@ final class media
 				echo $res;
 				return;
 			}
-			$rec=@mysql_fetch_assoc($r);
+			$rec=db::fetch($r);
 			if(!$rec)
 			{
 				echo $res."false,msg:\"Ссылочный файл не найден, перезагрузите страницу для актуализации ее состояния [".$refid."]\"}";
@@ -431,7 +431,7 @@ final class media
 		}
 		$cnt=0;
 		$ids=array();
-		while($rec=@mysql_fetch_assoc($r))
+		while($rec=db::fetch($r))
 		{
 			$cnt++;
 			if($cnt>$count)break;
@@ -495,7 +495,7 @@ final class media
 				echo $res;
 				return;
 			}
-			while($rec=@mysql_fetch_assoc($r))
+			while($rec=db::fetch($r))
 			{
 				$id=0+$rec["id"];
 				$pid=0+$rec["pid"];
@@ -566,13 +566,13 @@ final class media
 		}
 		$mName=$_POST["mName"];
 		$q="SELECT `id` FROM ".db::tn("mods")." WHERE `class`='".$mName."'";
-		$r=@mysql_query($q);
+		$r=db::q($q,false);
 		if($r===false)
 		{
 			echo"{action:\"".self::$class."-uploader-imgdel\",did:".$did.",id:".$id.",res:false,msg:\"Ошибка операции с базой данных [".__LINE__."]\"}";
 			return;
 		}
-		$rec=mysql_fetch_assoc($r);
+		$rec=db::fetch($r);
 		if(!$rec)
 		{
 			echo"{action:\"".self::$class."-uploader-imgdel\",did:".$did.",id:".$id.",res:false,msg:\"Невозможно выполнить операцию: модуль-владелец не найден\"}";
@@ -582,13 +582,13 @@ final class media
 		$uid=auth::user("id");
 		//находим запись
 		$q="SELECT `width`,`height`,`uploaded`,`name_sized`,`size_delim`,`extension`,`name`,`directory` FROM ".db::tnm(self::$class)." WHERE `id`={$id} AND `pid`!=0 AND `mid`={$mid} AND `uid`={$uid}";
-		$r=@mysql_query($q);
+		$r=db::q($q,false);
 		if($r===false)
 		{
 			echo"{action:\"".self::$class."-uploader-imgdel\",did:".$did.",id:".$id.",res:false,msg:\"Ошибка операции с базой данных [".__LINE__."]\"}";
 			return;
 		}
-		$rec=mysql_fetch_assoc($r);
+		$rec=db::fetch($r);
 		if(!$rec)
 		{
 			echo"{action:\"".self::$class."-uploader-imgdel\",did:".$did.",id:".$id.",res:false,msg:\"Невозможно выполнить операцию: изображение не найдено в БД [".__LINE__."]\"}";
@@ -615,13 +615,13 @@ final class media
 		$imt=$thd."/".$yr."/".$mn."/".$d."/".$id.".".$ext;
 		//удаляем запись
 		$q="DELETE FROM ".db::tnm(self::$class)." WHERE `id`={$id} AND `pid`!=0 AND `mid`={$mid} AND `uid`={$uid}";
-		$r=@mysql_query($q);
+		$r=db::q($q);
 		if($r===false)
 		{
 			echo"{action:\"".self::$class."-uploader-imgdel\",did:".$did.",id:".$id.",res:false,msg:\"Ошибка операции с базой данных [".__LINE__."]\"}";
 			return;
 		}
-		$rows=mysql_affected_rows();
+		$rows=db::affected();
 		if(!$rows || ($rows==-1))
 		{
 			echo"{action:\"".self::$class."-uploader-imgdel\",did:".$did.",id:".$id.",res:false,msg:\"Неизвестная ошибка: информация по изображению не удалена из БД [".__LINE__."]\"}";
@@ -639,9 +639,9 @@ final class media
 		if(!isset($_POST["mName"]))return;
 		$mName=$_POST["mName"];
 		$q="SELECT `id` FROM ".db::tn("mods")." WHERE `class`='".$mName."'";
-		$r=@mysql_query($q);
+		$r=db::q($q);
 		if($r===false)return;
-		$rec=mysql_fetch_assoc($r);
+		$rec=db::fetch($r);
 		if(!$rec)return;
 		$mid=0+$rec["id"];
 		//проверка fid
@@ -651,9 +651,9 @@ final class media
 		$uid=auth::user("id");
 		//находим запись
 		$q="SELECT `width`,`height`,`uploaded`,`name_sized`,`size_delim`,`extension`,`name`,`directory` FROM ".db::tnm("media")." WHERE `id`={$fid} AND `pid`=0 AND `mid`={$mid} AND `uid`={$uid}";
-		$r=@mysql_query($q);
+		$r=db::q($q);
 		if($r===false)return;
-		$rec=mysql_fetch_assoc($r);
+		$rec=db::fetch($r);
 		if(!$rec)return;
 		$wid=0+$rec["width"];
 		$ht=0+$rec["height"];
@@ -667,11 +667,11 @@ final class media
 		$thd=FLEX_APP_DIR_DAT."/_".self::$class."/".self::$config["thumbsDir"]."/".self::$config["uploaderThumbDir"];
 		//другие размеры если есть
 		$q="SELECT `id`,`width`,`height`,`uploaded`,`name_sized`,`size_delim`,`extension`,`name`,`directory` FROM ".db::tnm("media")." WHERE `pid`={$fid} AND `mid`={$mid} AND `uid`={$uid}";
-		$r=@mysql_query($q);
+		$r=db::q($q);
 		if($r!==false)
 		{
 			$cnt=0;
-			while($rec=mysql_fetch_assoc($r))
+			while($rec=db::fetch($r))
 			{
 				$cnt++;
 				$id=0+$rec["id"];
@@ -695,7 +695,7 @@ final class media
 				@unlink($thd."/".$yr."/".$mn."/".$d."/".$id.".".$ex);
 			}
 			if($cnt)
-				@mysql_query("DELETE FROM ".db::tnm("media")." WHERE `pid`={$fid} AND `mid`={$mid} AND `uid`={$uid}");
+				db::q("DELETE FROM ".db::tnm("media")." WHERE `pid`={$fid} AND `mid`={$mid} AND `uid`={$uid}");
 		}
 		if($nameSized)
 			$fn=$dir."/".$fid.$name.$sizeDelim.$wid.$sizeDelim.$ht.".".$ext;
@@ -706,7 +706,7 @@ final class media
 		$mn=date("m",$mdt);
 		$d=date("d",$mdt);
 		@unlink($thd."/".$yr."/".$mn."/".$d."/".$fid.".".$ext);
-		@mysql_query("DELETE FROM ".db::tnm("media")." WHERE `id`={$fid}");
+		db::q("DELETE FROM ".db::tnm("media")." WHERE `id`={$fid}");
 	}
 
 	/**
@@ -734,7 +734,7 @@ final class media
 		else $q="UPDATE ".db::tnm(self::$class."_binds")." SET ".$prep." WHERE `id`=".$bind["id"];
 		$r=db::q($q,!self::$silent);
 		if($r===false)return false;
-		if(!$bind["id"])$bind["id"]=0+@mysql_insert_id();
+		if(!$bind["id"])$bind["id"]=0+db::iid();
 		return $bind;
 	}
 
@@ -748,7 +748,7 @@ final class media
 		WHERE `md`.`id`=".$modId.($fs[0]?$fs[0]:"").($fs[1]?$fs[1]:"");
 		$r=db::q($q,!self::$silent);
 		if($r===false)return false;
-		$rec=@mysql_fetch_assoc($r);
+		$rec=db::fetch($r);
 		return (0+$rec["cnt"]);
 	}
 
@@ -780,7 +780,7 @@ final class media
 		}
 		$childs=array();
 		$ids=array();
-		while($rec=@mysql_fetch_assoc($r))$childs[]=$rec;
+		while($rec=db::fetch($r))$childs[]=$rec;
 		if(!count($childs))
 		{
 			foreach($childs as $child)
@@ -819,9 +819,9 @@ final class media
 	{
 		//!!!доработать!!!
 		$q="SELECT `name_orig`,`extension`,`directory` FROM ".db::tnm(self::$class)." WHERE `id`=".$id;
-		$r=@mysql_query($q);
+		$r=db::q($q);
 		if($r===false)return false;
-		$row=mysql_fetch_assoc($r);
+		$row=db::fetch($r);
 		if(!$row)return false;
 		$ext=$row["extension"];
 		$odir=$row["directory"];
@@ -839,14 +839,14 @@ final class media
 		if(!@copy($src,$dest))return false;
 		@chmod($dest,0777);
 		@unlink($src);
-		$q="UPDATE ".db::tnm(self::$class)." SET `directory`='".mysql_real_escape_string($dir)."' WHERE `id`=".$id;
-		@mysql_query($q);
+		$q="UPDATE ".db::tnm(self::$class)." SET `directory`='".db::esc($dir)."' WHERE `id`=".$id;
+		db::q($q);
 		if($ext && in_array(ltrim($ext,"."),self::$types[MEDIA_TYPE_IMG]))
 		{
 			$q="SELECT `width`,`height` FROM ".db::tnm(self::$class."_isizes")." WHERE `fid`=".$id;
-			$r=@mysql_query($q);
+			$r=db::q($q);
 			if($r===false)return true;
-			while($row=mysql_fetch_array(($r)))
+			while($row=db::fetch($r))
 			{
 				$w=0+$row["width"];
 				$h=0+$row["height"];
@@ -884,7 +884,7 @@ final class media
 		if($r===false)return false;
 		$item=array();
 		$c=0;
-		while($rec=@mysql_fetch_assoc($r))
+		while($rec=db::fetch($r))
 		{
 			if(!$c)
 			{
@@ -928,7 +928,7 @@ final class media
 		if($r===false)return false;
 		$recs=array();
 		$ids=array();
-		while($rec=@mysql_fetch_assoc($r))
+		while($rec=db::fetch($r))
 		{
 			$bind=array();
 			if(($entity!==false) && isset($rec["bid"]) && ((0+$rec["bid"])>0))
@@ -1150,7 +1150,7 @@ final class media
 					if(is_int($val))$val=date("Y-m-d H:i:s",$val);
 					if(!is_string($val))$val=date("Y-m-d H:i:s",time());
 					$item[$field]=$val;
-					$val="'".mysql_real_escape_string($val)."'";
+					$val="'".db::esc($val)."'";
 					break;
 				case "string":
 				case "text":
@@ -1168,13 +1168,13 @@ final class media
 						}
 					}
 					$item[$field]=$val;
-					$val="'".mysql_real_escape_string($val)."'";
+					$val="'".db::esc($val)."'";
 					break;
 				default:
 					if(is_null($val))$val="";
 					else $val="".$val;
 					$item[$field]=$val;
-					$val="'".mysql_real_escape_string($val)."'";
+					$val="'".db::esc($val)."'";
 			}
 			$res[$field]=$val;
 		}
@@ -1995,7 +1995,7 @@ final class media
 		if($r===false)return false;
 		if($mode==MEDIA_WRITEMODE_INSERT)
 		{
-			$item["id"]=0+@mysql_insert_id();
+			$item["id"]=0+db::iid();
 			if($bind!==false)$bind["mid"]=$item["id"];
 		}
 		if($bind!==false)
@@ -2358,7 +2358,7 @@ final class media
 		WHERE `m`.`mid`=".$modId.($fts?$fts:"");
 		$r=db::q($q,!self::$silent);
 		if($r===false)return false;
-		$rec=@mysql_fetch_assoc($r);
+		$rec=db::fetch($r);
 		return (0+$rec["cnt"]);
 	}
 
@@ -2600,14 +2600,14 @@ final class media
 								if($val)$wheres[]="`mb`.`oid`=".$val;
 								break;
 							case "content_type":
-								$wheres[]="`m`.`content_type`='".mysql_real_escape_string($val)."'";
+								$wheres[]="`m`.`content_type`='".db::esc($val)."'";
 								break;
 							case "par1":
 							case "par2":
-								if(!is_array($par1))$wheres[]="`mb`.`".$key."`='".mysql_real_escape_string($val)."'";
+								if(!is_array($par1))$wheres[]="`mb`.`".$key."`='".db::esc($val)."'";
 								else
 								{
-									foreach($val as $key1=>$str)$val[$key]=mysql_real_escape_string($str);
+									foreach($val as $key1=>$str)$val[$key]=db::esc($str);
 									$wheres[]="`mb`.`par1` IN ('".implode("','",$par1)."')";
 								}
 								break;
@@ -2643,7 +2643,7 @@ final class media
 		WHERE ".implode(" AND ",$wheres);
 		$r=db::q($q,!self::$silent);
 		if($r===false)return false;
-		$rec=@mysql_fetch_row($r);
+		$rec=db::fetch($r,"r");
 		if((0+$rec["cnt"])>self::$config["batchMaxCount"])
 		{
 			$msg="Невозможно выполнить операцию: результатирующий набор слишком велик [>".self::$config["batchMaxCount"]."]";
@@ -2661,7 +2661,7 @@ final class media
 		$r=db::q($q,!self::$silent);
 		if($r===false)return false;
 		$ids=array();
-		while($rec=@mysql_fetch_assoc($r))
+		while($rec=db::fetch($r))
 		{
 			$id=0+$rec["id"];
 			$ids[]=$id;
@@ -2999,7 +2999,7 @@ final class media
 			self::$lastMsg=db::lastError();
 			return false;
 		}
-		$rec=@mysql_fetch_row($r);
+		$rec=db::fetch($r,"r");
 		if((0+$rec["cnt"])>self::$config["batchMaxCount"])
 		{
 			self::$lastMsg="Невозможно выполнить операцию: результатирующий набор слишком велик [>".self::$config["batchMaxCount"]."]";
@@ -3016,7 +3016,7 @@ final class media
 			return false;
 		}
 		$ids=array();
-		while($rec=@mysql_fetch_assoc($r))$ids[]=0+$rec["id"];
+		while($rec=db::fetch($r))$ids[]=0+$rec["id"];
 		$q="UPDATE ".db::tnm(self::$class)." `m`
 		INNER JOIN ".db::tnm(self::$class."_binds")." `mb` ON `mb`.`mid`=`m`.`id`
 		LEFT JOIN ".db::tnm(self::$class)." `m1` ON (`m1`.`id`=`m`.`id` || `m1`.`pid`=`m`.`id`)

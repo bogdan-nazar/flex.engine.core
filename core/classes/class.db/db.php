@@ -73,14 +73,26 @@ final class db
 			self::$db["user"]=self::$config["loc_user"];
 			self::$db["pass"]=self::$config["loc_pass"];
 		}
-		self::$db["link"]=@mysql_connect(self::$db["host"],self::$db["user"],self::$db["pass"]) or die("Could not connect: ".mysql_error());
-		mysql_query("SET CHARACTER_SET_CLIENT='utf8'");
-		mysql_query("SET CHARACTER_SET_RESULTS='utf8'");
-		mysql_query("SET COLLATION_CONNECTION='utf8_general_ci'");
-		mysql_select_db(self::$db["name"],self::$db["link"]) or die ("Can't use database: ".mysql_error());
+		self::$db["link"]=new \mysqli(self::$db["host"],self::$db["user"],self::$db["pass"]);
+		$my=&self::$db["link"];
+		if($my->connect_error)die("Could not connect: ".$my->connect_error);
+		$my->query("SET CHARACTER_SET_CLIENT='utf8'");
+		$my->query("SET CHARACTER_SET_RESULTS='utf8'");
+		$my->query("SET COLLATION_CONNECTION='utf8_general_ci'");
+		$my->select_db(self::$db["name"]) or die ("Can't use database: ".$my->error);
 	}
 
 	public static function _sleep(){}
+
+	/**
+	* Возвращает конфигурационный параметр
+	*
+	* @return int $count
+	*/
+	public static function affected()
+	{
+		self::$db["link"]->affected_rows;
+	}
 
 	/**
 	* Возвращает конфигурационный параметр
@@ -119,7 +131,7 @@ final class db
 	*/
 	public static function esc($s)
 	{
-		return @mysql_real_escape_string("".$s);
+		return @self::$db["link"]->real_escape_string("".$s);
 	}
 
 	/**
@@ -129,7 +141,7 @@ final class db
 	*/
 	public static function iid()
 	{
-		return @mysql_insert_id();
+		return @self::$db["link"]->insert_id;
 	}
 
 	/**
@@ -145,11 +157,11 @@ final class db
 		switch($a)
 		{
 			case "a":
-				return @mysql_fetch_assoc($r);
+				return @$r->fetch_assoc();
 			case "r":
-				return @mysql_fetch_row($r);
+				return @$r->fetch_row();
 			default:
-				return @mysql_fetch_array($r);
+				return @$r->fetch_array();
 		}
 	}
 
@@ -305,11 +317,11 @@ final class db
 	*/
 	public static function q($q,$die=false,$debug=array("msg"=>"Ошибка выполнения запроса к БД."))
 	{
-		$r=@mysql_query($q);
+		$r=@self::$db["link"]->query($q);
 		if($r===false)
 		{
 			$msgQuery="SQL string: [\n".$q."\n].";
-			$msgErr="MySQL message: [\n".mysql_error(self::$db["link"])."\n].";
+			$msgErr="MySQL message: [\n".self::$db["link"]->error."\n].";
 			if(@function_exists("error_log") || $die)
 			{
 				//сохраняем
@@ -364,7 +376,7 @@ final class db
 	*/
 	public static function rows($r)
 	{
-		return @mysql_num_rows($r);
+		return @$r->num_rows;
 	}
 
 	/**
@@ -382,7 +394,7 @@ final class db
 		if($class)$table="mod_".$class."_".$tname;
 		else $table=$tname;
 		$r=self::q("SHOW COLUMNS FROM `".self::$config["table_pref"].$table."`",true);
-		while($rec=@mysql_fetch_assoc($r))$fields[]=$rec["Field"];
+		while($rec=@$r->fetch_assoc())$fields[]=$rec["Field"];
 		return $fields;
 	}
 
@@ -403,7 +415,7 @@ final class db
 			//Array([Field]=>id,[Type]=>int(7),[Null]=>,[Key]=>PRI,[Default]=>,[Extra]=>auto_increment)
 			$r=db::q("SHOW COLUMNS FROM `".$table."`",false);
 			if($r===false)return false;
-			while($rec=@mysql_fetch_assoc($r))
+			while($rec=@$r->fetch_assoc())
 			{
 				$field=array();
 				$field["raw"]=$rec;

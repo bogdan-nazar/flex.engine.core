@@ -45,7 +45,7 @@ final class render
 		WHERE `m`.`act`=1 AND `b`.`sid` in ({$spots}) AND `b`.`pages`='all' AND (`ba`.`cid` IS NULL{$where})
 		ORDER BY `b`.`sid`,`b`.`ord`";
 		$r=db::q($q,true);
-		while($row=@mysql_fetch_assoc($r))
+		while($row=db::fetch($r))
 		{
 			$spot=0+$row["spot"];
 			$ord=0+$row["ord"];
@@ -68,7 +68,7 @@ final class render
 			WHERE `m`.`act`=1 AND `b`.`sid` in ({$spots}) AND `b`.`pages`='none' AND `ba`.`cid`={$cid}
 			ORDER BY `b`.`sid`,`b`.`ord`";
 			$r=db::q($q,true);
-			while($row=@mysql_fetch_assoc($r))
+			while($row=db::fetch($r))
 			{
 				$spot=0+$row["spot"];
 				$ord=0+$row["ord"];
@@ -637,7 +637,7 @@ final class render
 		$cid=content::item("id");
 		$q="SELECT `sid`,`styles` FROM ".db::tnm(self::$class."_spot_styles")." WHERE `cid`=".$cid." AND `sid` IN (".implode(",",self::$spotsCur).")";
 		$r=db::q($q,true);
-		while($row=mysql_fetch_row($r))
+		while($row=db::fetch($r,"r"))
 		{
 			$sid=0+$row[0];
 			$style=rtrim($row[1],";");
@@ -650,7 +650,7 @@ final class render
 	{
 		self::$spots[0]="system";
 		$r=db::q("SELECT `id`,`alias` FROM ".db::tnm(self::$class."_spots")." ORDER BY `id`",true);
-		while($row=mysql_fetch_row($r))self::$spots[0+$row[0]]=$row[1];
+		while($row=db::fetch($r,"r"))self::$spots[0+$row[0]]=$row[1];
 	}
 
 	private static function _typeDetermine()
@@ -820,7 +820,7 @@ final class render
 		LEFT JOIN ".db::tnm("content")." `c` ON `c`.`id`=`ba`.`cid`
 		WHERE `m`.`class`='{$mod}' AND {$methodSql}".($cid?(" AND (ISNULL(`c`.`id`) OR (`c`.`id`={$cid}))"):"");
 		$r=db::q($q,true);
-		while($rec=@mysql_fetch_assoc($r))
+		while($rec=db::fetch($r))
 		{
 			$rec["id"]=0+$rec["id"];
 			$rec["alias"]="".$rec["alias"];

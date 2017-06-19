@@ -169,7 +169,7 @@ final class core
 	private function __sysLoad()
 	{
 		$r=db::q("SELECT `id`,`core`,`srv`,`ord`,`class`,`title` FROM ".db::tn("mods")." WHERE `act`=1 AND (`core`=1 OR `srv`=1) ORDER BY `ord`",true);
-		while($rec=@mysql_fetch_assoc($r))
+		while($rec=db::fetch($r))
 		{
 			$core=0+$rec["core"];
 			$srv=0+$rec["srv"];
@@ -526,7 +526,7 @@ final class core
 		if(!$id || $forceDb)
 		{
 			$r=db::q("SELECT `id` FROM ".db::tn("mods")." WHERE `class`='".$class."'",true);
-			$id=@mysql_fetch_row($r);
+			$id=db::fetch($r,"r");
 			if(!$id)$id=0;
 			else $id=0+$id[0];
 		}
@@ -550,7 +550,8 @@ final class core
 		if($filters)$filtersSQL=db::filtersMake($filters,true);
 		else $filtersSQL="";
 		$r=db::q("SELECT `".implode("`,`",$fields)."` FROM ".db::tn("mods").($filtersSQL?(" WHERE".$filtersSQL):""),true);
-		while($rec=@mysql_fetch_assoc($r))$recs[]=$rec;
+		$recs=array();
+		while($rec=db::fetch($r))$recs[]=$rec;
 		return $recs;
 	}
 

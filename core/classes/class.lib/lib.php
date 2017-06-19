@@ -102,12 +102,40 @@ final class lib
 	}
 
 	/**
+	* Функция дополнительно экранирует спецсимволы для прямого вывода
+	* json-объекта в текст скрипта и для использования в eval() ()
+	* с использовании json-строки, детермнированной двойными кавычками,
+	* например:
+	* 	var s = eval("({data: " + <?=$jsonStr?> + "})"); //инициализация с помощью eval()
+	*	var s = <?=$jsonStr?>; //прямая инициализация в клиентском коде
+	*
+	* @param string $s - json-строка
+	* @param boolean $quoted - тип вывода в текст скрипта
+	*/
+	public static function jsonEscape($s,$quoted=true)
+	{
+		//обратный слеш в регулярных выражениях
+		//кодируется 4-мя обратными слешами
+
+		//экранируем в значениях обратные слеши, кавычки и символы управления строками
+		if($quoted)
+		{
+			$s=preg_replace("/(\\\\\\\\)/","\\\\\\\\$1",$s);
+			$s=preg_replace("/(\\\\\")/","\\\\\\\\$1",$s);
+		}
+		$s=preg_replace("/(?|(\\\\r)|(\\\\n))/","\\\\$1",$s);
+		//заменяем кавычки, детерминирующие строки
+		if($quoted)$s=preg_replace("/(?:^|([^\\\\]+))\"/im","$1\\\\\"",$s);
+		return $s;
+	}
+
+	/**
 	* Конвертация массива в JSON-объект
 	*
 	* @param array $data - конвертируемые данные
 	* @param boolean $forceObject - превращать все массивы в объекты принудительно
 	* @param boolean $escape - если true - подготовить JSON для inline-вывода (экранировать спецсимволы)
-	* @param boolean $forceObject - если true - экранировать еще раз раз для использования в eval()
+	* @param boolean $quoted - если true - экранировать еще раз раз для использования в eval()
 	*
 	* @return string $json
 	*/
@@ -115,35 +143,8 @@ final class lib
 	{
 		if(!is_array($data))return"[]";
 		$res=array();
-		//пытаемся автоматически распознать ассоциативный массив
-		if(is_null($forceObj))
-		{
-			//проверяем, все ли ключи целочисленные
-			$keys=array_keys($data);
-			foreach($keys as $key)
-				if(!is_int($key))
-				{
-					$forceObj=true;
-					break;
-				}
-			//если все ключи целочисленные,
-			//то проверяем их непрерывность
-			if(is_null($forceObj))
-			{
-				$l=count($keys);
-				for($c=0;$c<$l;$c++)
-				{
-					if($c!==$keys[$c])
-					{
-						$forceObj=true;
-						break;
-					}
-				}
-			}
-			if(is_null($forceObj))$forceObj=false;
-		}
 		//пытаемся использовать нативную функцию
-		if(function_exists("json_encode") && (!$forceObj || defined("JSON_FORCE_OBJECT")))
+		if(function_exists("json_encode") && (is_null($forceObj) || defined("JSON_FORCE_OBJECT")))
 		{
 			$flags=0;
 			if(defined("JSON_UNESCAPED_UNICODE"))$flags=$flags | JSON_UNESCAPED_UNICODE;
@@ -154,8 +155,38 @@ final class lib
 			if($escape)$res=self::jsonEscape($res,$quoted);
 			return $res;
 		}
-		//либо используем свой аогоритм
-		if($forceObj)
+		//используем альтернативнй алгоритм...
+		//
+		//пытаемся автоматически распознать ассоциативный массив
+		$forceObjCur=NULL;
+		if(is_null($forceObj))
+		{
+			//проверяем, все ли ключи целочисленные
+			$keys=array_keys($data);
+			foreach($keys as $key)
+				if(!is_int($key))
+				{
+					$forceObjCur=true;
+					break;
+				}
+			//если все ключи целочисленные,
+			//то проверяем их непрерывность
+			if(is_null($forceObjCur))
+			{
+				$l=count($keys);
+				for($c=0;$c<$l;$c++)
+				{
+					if($c!==$keys[$c])
+					{
+						$forceObjCur=true;
+						break;
+					}
+				}
+			}
+			if(is_null($forceObjCur))$forceObjCur=false;
+		}
+		else $forceObjCur=$forceObj;
+		if($forceObjCur)
 		{
 			$sq1="{";
 			$sq2="}";
@@ -195,37 +226,9 @@ final class lib
 				case "unknown type":
 					continue;
 			}
-			$res[]=($forceObj?("\"".$key."\":"):"").$val;
+			$res[]=($forceObjCur?("\"".$key."\":"):"").$val;
 		}
 		return $sq1.implode(",",$res).$sq2;
-	}
-
-	/**
-	* Функция дополнительно экранирует спецсимволы для прямого вывода
-	* json-объекта в текст скрипта и для использования в eval() ()
-	* с использовании json-строки, детермнированной двойными кавычками,
-	* например:
-	* 	var s = eval("({data: " + <?=$jsonStr?> + "})"); //инициализация с помощью eval()
-	*	var s = <?=$jsonStr?>; //прямая инициализация в клиентском коде
-	*
-	* @param string $s - json-строка
-	* @param boolean $quoted - тип вывода в текст скрипта
-	*/
-	public static function jsonEscape($s,$quoted=true)
-	{
-		//обратный слеш в регулярных выражениях
-		//кодируется 4-мя обратными слешами
-
-		//экранируем в значениях обратные слеши, кавычки и символы управления строками
-		if($quoted)
-		{
-			$s=preg_replace("/(\\\\\\\\)/","\\\\\\\\$1",$s);
-			$s=preg_replace("/(\\\\\")/","\\\\\\\\$1",$s);
-		}
-		$s=preg_replace("/(?|(\\\\r)|(\\\\n))/","\\\\$1",$s);
-		//заменяем кавычки, детерминирующие строки
-		if($quoted)$s=preg_replace("/(?:^|([^\\\\]+))\"/im","$1\\\\\"",$s);
-		return $s;
 	}
 
 	public static function lastMsg()
